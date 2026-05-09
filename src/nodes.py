@@ -75,10 +75,12 @@ def select_model_tier(state: AgentState) -> AgentState:
     complexity = state["complexity_score"]
     intent = state["detected_intent"]
 
+    downgradeable_intents = {"simple_qa", "general"}
+
     if complexity >= COMPLEXITY_THRESHOLDS["upgrade_to_powerful"]:
         tier = ModelTier.POWERFUL
         reason = f"Magas komplexitás ({complexity:.2f}) -> erős modell"
-    elif complexity <= COMPLEXITY_THRESHOLDS["downgrade_to_fast"]:
+    elif complexity <= COMPLEXITY_THRESHOLDS["downgrade_to_fast"] and intent in downgradeable_intents:
         tier = ModelTier.FAST
         reason = f"Alacsony komplexitás ({complexity:.2f}) -> gyors modell"
     else:

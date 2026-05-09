@@ -21,20 +21,20 @@ MODEL_CONFIG = {
         "description": "Gyors válaszok egyszerű kérdésekre"
     },
     ModelTier.BALANCED: {
-        "provider": "google",
-        "model": "gemini-2.5-flash-lite",
+        "provider": "openai",
+        "model": "gpt-4o-mini",
         "temperature": 0.5,
         "description": "Kiegyensúlyozott válaszok általános feladatokra"
     },
     ModelTier.POWERFUL: {
-        "provider": "google",
-        "model": "gemini-2.5-flash-lite",
+        "provider": "openai",
+        "model": "gpt-4o",
         "temperature": 0.2,
         "description": "Mély elemzés, komplex reasoning"
     },
     ModelTier.CREATIVE: {
-        "provider": "google",
-        "model": "gemini-2.5-flash-lite",
+        "provider": "openai",
+        "model": "gpt-4o",
         "temperature": 0.9,
         "description": "Kreatív írás, brainstorming"
     }

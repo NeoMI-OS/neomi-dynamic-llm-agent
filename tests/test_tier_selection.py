@@ -144,9 +144,23 @@ class TestSelectModelTier:
         state = self._run(long_query, history=["msg"] * 6)
         assert state["selected_tier"] == ModelTier.POWERFUL.value
 
-    def test_low_complexity_forces_fast(self):
+    def test_low_complexity_forces_fast_for_general_intent(self):
         state = self._run("Hi")
         assert state["selected_tier"] == ModelTier.FAST.value
+
+    def test_low_complexity_does_not_override_creative_intent(self):
+        # Short creative query must not be downgraded to FAST
+        state = self._run("Write a poem about the ocean")
+        assert state["selected_tier"] == ModelTier.CREATIVE.value
+
+    def test_low_complexity_does_not_override_analysis_intent(self):
+        # Short analysis query must not be downgraded to FAST
+        state = self._run("Analyze the differences between Python and Rust")
+        assert state["selected_tier"] == ModelTier.POWERFUL.value
+
+    def test_low_complexity_does_not_override_coding_intent(self):
+        state = self._run("Fix this bug in my code")
+        assert state["selected_tier"] == ModelTier.POWERFUL.value
 
     # Intent-driven selection (mid-range complexity)
     def test_creative_intent_selects_creative_tier(self):
