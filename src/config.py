@@ -33,8 +33,8 @@ MODEL_CONFIG = {
         "description": "Mély elemzés, komplex reasoning"
     },
     ModelTier.CREATIVE: {
-        "provider": "openai",
-        "model": "gpt-4o",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-6",
         "temperature": 0.9,
         "description": "Kreatív írás, brainstorming"
     }
