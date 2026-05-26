@@ -13,6 +13,7 @@ from config import (
     AgentState, ModelTier, MODEL_CONFIG,
     INTENT_KEYWORDS, INTENT_TO_TIER, COMPLEXITY_THRESHOLDS
 )
+from evaluator import evaluate_model
 
 
 def detect_intent(state: AgentState) -> AgentState:
@@ -165,3 +166,14 @@ call_fast_model = create_tier_node(ModelTier.FAST)
 call_balanced_model = create_tier_node(ModelTier.BALANCED)
 call_powerful_model = create_tier_node(ModelTier.POWERFUL)
 call_creative_model = create_tier_node(ModelTier.CREATIVE)
+
+
+def run_model_evaluation(state: AgentState) -> AgentState:
+    """Lekéri az Artificial Analysis értékelést a használt modellről."""
+    model_name = state.get("model_used", "")
+    # model_used formátuma: "provider/model-name" — csak a modell neve kell
+    if "/" in model_name:
+        model_name = model_name.split("/", 1)[1]
+
+    state["model_evaluation"] = evaluate_model(model_name)
+    return state

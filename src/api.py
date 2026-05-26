@@ -45,6 +45,7 @@ class ChatResponse(BaseModel):
     complexity_score: float
     routing_reason: str
     tokens_used: Optional[int] = None
+    model_evaluation: Optional[dict] = None
 
 
 class ModelInfo(BaseModel):
@@ -86,7 +87,8 @@ async def chat(request: ChatRequest):
             detected_intent=result["detected_intent"],
             complexity_score=result["complexity_score"],
             routing_reason=result["routing_reason"],
-            tokens_used=result.get("tokens_used")
+            tokens_used=result.get("tokens_used"),
+            model_evaluation=result.get("model_evaluation")
         )
 
     except Exception as e:

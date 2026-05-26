@@ -52,6 +52,7 @@ class AgentState(TypedDict):
     response: str
     model_used: str
     tokens_used: Optional[int]
+    model_evaluation: Optional[dict]
 
 
 INTENT_KEYWORDS = {
