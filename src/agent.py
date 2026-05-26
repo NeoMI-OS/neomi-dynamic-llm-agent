@@ -18,7 +18,8 @@ from nodes import (
     call_fast_model,
     call_balanced_model,
     call_powerful_model,
-    call_creative_model
+    call_creative_model,
+    run_model_evaluation
 )
 
 
@@ -38,6 +39,7 @@ def build_agent_graph() -> StateGraph:
     workflow.add_node("balanced", call_balanced_model)
     workflow.add_node("powerful", call_powerful_model)
     workflow.add_node("creative", call_creative_model)
+    workflow.add_node("evaluate", run_model_evaluation)
 
     workflow.set_entry_point("detect_intent")
     workflow.add_edge("detect_intent", "calculate_complexity")
@@ -54,10 +56,11 @@ def build_agent_graph() -> StateGraph:
         }
     )
 
-    workflow.add_edge("fast", END)
-    workflow.add_edge("balanced", END)
-    workflow.add_edge("powerful", END)
-    workflow.add_edge("creative", END)
+    workflow.add_edge("fast", "evaluate")
+    workflow.add_edge("balanced", "evaluate")
+    workflow.add_edge("powerful", "evaluate")
+    workflow.add_edge("creative", "evaluate")
+    workflow.add_edge("evaluate", END)
 
     return workflow
 
@@ -81,7 +84,8 @@ def run_agent(query: str, conversation_history: list = None) -> dict:
         "routing_reason": "",
         "response": "",
         "model_used": "",
-        "tokens_used": None
+        "tokens_used": None,
+        "model_evaluation": None
     }
 
     result = agent.invoke(initial_state)
