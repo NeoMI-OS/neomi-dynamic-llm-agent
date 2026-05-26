@@ -149,23 +149,24 @@ export default function CriticSummary({ critique }) {
     critique.total ??
     null
 
-  const relevance =
-    critique.relevance ??
-    critique.relevance_score ??
-    critique.categories?.relevance ??
-    null
+  const extractScore = (val) => {
+    if (val === null || val === undefined) return null
+    if (typeof val === 'number') return val
+    if (typeof val === 'object') return val.score ?? val.value ?? null
+    return null
+  }
 
-  const depth =
-    critique.depth ??
-    critique.depth_score ??
-    critique.categories?.depth ??
-    null
+  const relevance = extractScore(
+    critique.relevance ?? critique.relevance_score ?? critique.categories?.relevance
+  )
 
-  const applicability =
-    critique.applicability ??
-    critique.applicability_score ??
-    critique.categories?.applicability ??
-    null
+  const depth = extractScore(
+    critique.depth ?? critique.depth_score ?? critique.categories?.depth
+  )
+
+  const applicability = extractScore(
+    critique.applicability ?? critique.applicability_score ?? critique.categories?.applicability
+  )
 
   const feedback =
     critique.overall_feedback ??

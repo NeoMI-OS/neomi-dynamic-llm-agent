@@ -130,13 +130,17 @@ export default function NodeCard({ trace, index }) {
 
   const nodeName = trace.node_name || trace.name || trace.node || `Csomópont ${index + 1}`
   const model = trace.model || trace.llm_model || trace.model_used || ''
-  const duration = formatDuration(trace.duration_seconds ?? trace.duration ?? trace.elapsed)
+  const durRaw = trace.duration_seconds ?? trace.duration ?? trace.elapsed ?? null
+  const durMs = trace.duration_ms ?? null
+  const durSec = durRaw !== null ? durRaw : (durMs !== null ? durMs / 1000 : null)
+  const duration = formatDuration(durSec)
+
   const tokens = formatTokens(
     trace.token_count ?? trace.tokens ?? trace.total_tokens ??
     (trace.usage?.total_tokens) ?? null
   )
 
-  const srsData = trace.srs_score ?? trace.srs ?? null
+  const srsData = trace.model_evaluation ?? trace.srs_score ?? trace.srs ?? null
   const statusColor = getNodeStatusColor(trace)
 
   // Get the content output to display

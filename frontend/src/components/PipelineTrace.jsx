@@ -51,7 +51,9 @@ function computeStats(traces) {
   let hasTokens = false
 
   traces.forEach(t => {
-    const dur = t.duration_seconds ?? t.duration ?? t.elapsed
+    const durRaw = t.duration_seconds ?? t.duration ?? t.elapsed ?? null
+    const durMs = t.duration_ms ?? null
+    const dur = durRaw !== null ? durRaw : (durMs !== null ? durMs / 1000 : null)
     if (dur !== null && dur !== undefined) {
       totalDuration += parseFloat(dur) || 0
       hasDuration = true

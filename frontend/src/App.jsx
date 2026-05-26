@@ -286,6 +286,21 @@ export default function App() {
       }
 
       const result = await res.json()
+
+      // Enrich node_traces with content from top-level fields
+      const contentMap = {
+        context_analyst: result.context_analysis,
+        needs_analyzer: result.needs_analysis,
+        curriculum_designer: result.curriculum_design,
+        content_writer: result.content,
+      }
+      if (result.node_traces) {
+        result.node_traces = result.node_traces.map(trace => ({
+          ...trace,
+          output: contentMap[trace.node] ?? trace.output ?? null,
+        }))
+      }
+
       setPipelineResult(result)
     } catch (err) {
       setError(`Pipeline futtatása sikertelen: ${err.message}`)

@@ -95,10 +95,10 @@ export default function SRSBadge({ srs }) {
   if (typeof srs === 'number') {
     total = srs
   } else if (typeof srs === 'object' && srs !== null) {
-    total = srs.total ?? srs.score ?? srs.srs_score ?? null
-    knowledge = srs.knowledge ?? srs.knowledge_score ?? null
-    reasoning = srs.reasoning ?? srs.reasoning_score ?? null
-    usability = srs.usability ?? srs.usability_score ?? null
+    total = srs.service_readiness_score ?? srs.total ?? srs.score ?? srs.srs_score ?? null
+    knowledge = srs.knowledge_score ?? srs.knowledge ?? null
+    reasoning = srs.reasoning_score ?? srs.reasoning ?? null
+    usability = srs.usability_score ?? srs.usability ?? null
   }
 
   if (total === null || total === undefined) return null
