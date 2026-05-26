@@ -1,0 +1,33 @@
+# exp_001_baseline.yaml
+# Referencia kísérlet: azonos erős modell minden szerepben
+experiment:
+  id: "exp-001"
+  name: "Baseline - GPT-4o mindenhol"
+  description: "Referencia pont: azonos erős modell minden szerepben"
+  version: "1.0"
+
+nodes:
+  context_analyst:
+    model: "gpt-4o"
+    provider: "openai"
+    temperature: 0.3
+  needs_analyzer:
+    model: "gpt-4o"
+    provider: "openai"
+    temperature: 0.2
+  curriculum_designer:
+    model: "gpt-4o"
+    provider: "openai"
+    temperature: 0.5
+  content_writer:
+    model: "gpt-4o"
+    provider: "openai"
+    temperature: 0.7
+  critic:
+    model: "gpt-4o"
+    provider: "openai"
+    temperature: 0.1
+
+settings:
+  language: "hungarian"
+  max_tokens_per_node: 1000

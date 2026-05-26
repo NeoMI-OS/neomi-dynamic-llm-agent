@@ -1,0 +1,33 @@
+# exp_002_claude_diversity.yaml
+# Claude Sonnet kísérlet: azonos Claude modell minden szerepben
+experiment:
+  id: "exp-002"
+  name: "Claude Diversity - Claude Sonnet mindenhol"
+  description: "Anthropic Claude Sonnet modell minden szerepben — összehasonlítás a GPT-4o baseline-nal"
+  version: "1.0"
+
+nodes:
+  context_analyst:
+    model: "claude-sonnet-4-6"
+    provider: "anthropic"
+    temperature: 0.3
+  needs_analyzer:
+    model: "claude-sonnet-4-6"
+    provider: "anthropic"
+    temperature: 0.2
+  curriculum_designer:
+    model: "claude-sonnet-4-6"
+    provider: "anthropic"
+    temperature: 0.5
+  content_writer:
+    model: "claude-sonnet-4-6"
+    provider: "anthropic"
+    temperature: 0.7
+  critic:
+    model: "claude-sonnet-4-6"
+    provider: "anthropic"
+    temperature: 0.1
+
+settings:
+  language: "hungarian"
+  max_tokens_per_node: 1000

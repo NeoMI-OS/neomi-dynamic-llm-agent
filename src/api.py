@@ -17,6 +17,8 @@ load_dotenv()
 
 from agent import run_agent
 from config import MODEL_CONFIG, ModelTier
+from pipeline import run_pipeline
+from pipeline_config import list_experiments
 
 app = FastAPI(
     title="Dynamic LLM Router Agent",
@@ -96,6 +98,42 @@ async def chat(request: ChatRequest):
             status_code=500,
             detail=f"Agent hiba: {str(e)}"
         )
+
+
+class PipelineRunRequest(BaseModel):
+    experiment_id: str
+    input: dict  # company_name, company_type, target_audience, goal, context
+
+
+@app.post("/pipeline/run")
+async def pipeline_run(request: PipelineRunRequest):
+    """
+    Futtatja a multi-agent oktatási pipeline-t a megadott kísérlet konfigurációval.
+    """
+    try:
+        result = run_pipeline(
+            experiment_id=request.experiment_id,
+            input_data=request.input,
+        )
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pipeline hiba: {str(e)}")
+
+
+@app.get("/pipeline/experiments")
+async def pipeline_experiments():
+    """
+    Visszaadja az összes elérhető kísérlet konfigurációját metaadatokkal.
+    """
+    try:
+        experiments = list_experiments()
+        return experiments
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kísérletek betöltési hiba: {str(e)}")
 
 
 if __name__ == "__main__":
