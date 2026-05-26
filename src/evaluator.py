@@ -20,7 +20,7 @@ MODEL_SLUG_MAP = {
     "claude-sonnet-4-6": "claude-sonnet-4-5",
 }
 
-AA_API_URL = "https://api.artificialanalysis.ai/data/llms/models"
+AA_API_URL = "https://artificialanalysis.ai/api/v2/data/llms/models"
 CACHE_TTL_SECONDS = 3600  # 1 óra
 
 # SRS súlyok – chat/agent szolgáltatásnál a Usability a legfontosabb
