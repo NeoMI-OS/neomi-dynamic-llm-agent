@@ -1,0 +1,23 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/dynamic-llm-agent-dev:$COMMIT_SHA', '.']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/dynamic-llm-agent-dev:$COMMIT_SHA']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'dynamic-llm-agent-dev'
+      - '--image=gcr.io/$PROJECT_ID/dynamic-llm-agent-dev:$COMMIT_SHA'
+      - '--region=europe-west1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=GOOGLE_API_KEY=${_GOOGLE_API_KEY},OPENAI_API_KEY=${_OPENAI_API_KEY},ANTHROPIC_API_KEY=${_ANTHROPIC_API_KEY},ARTIFICIAL_ANALYSIS_API_KEY=${_ARTIFICIAL_ANALYSIS_API_KEY}'
+
+images:
+  - 'gcr.io/$PROJECT_ID/dynamic-llm-agent-dev:$COMMIT_SHA'
