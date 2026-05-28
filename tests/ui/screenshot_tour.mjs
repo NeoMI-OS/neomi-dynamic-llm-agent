@@ -4,7 +4,7 @@
  * Run: node screenshot_tour.mjs [URL]
  */
 
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs'
+import { chromium } from 'playwright'
 import { mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path'
@@ -26,8 +26,7 @@ async function run() {
   await mkdir(SCREENSHOTS_DIR, { recursive: true })
 
   const browser = await chromium.launch({
-    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+    args: ['--no-sandbox'],
   })
 
   const page = await browser.newPage()
