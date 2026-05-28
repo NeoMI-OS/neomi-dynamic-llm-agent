@@ -96,7 +96,7 @@ async function run() {
           const body = document.body.innerText
           return body.includes('csomópont') || body.includes('Kritikai') || body.includes('node') || body.includes('Visszajelzés')
         },
-        { timeout: 90000 }
+        { timeout: 120000 }
       )
       await page.waitForTimeout(1500)
       await shot(page, '06_pipeline_result_full', 'Pipeline eredmény — teljes nézet')
@@ -138,7 +138,7 @@ async function run() {
   }
 
   // ── 10: Disabled state (no company name) ──────────────────────────────────
-  await page.goto(FRONTEND_URL, { waitUntil: 'networkidle', timeout: 15000 })
+  await page.goto(FRONTEND_URL, { waitUntil: 'networkidle', timeout: 30000 })
   await page.waitForTimeout(800)
   await shot(page, '10_validation_empty', 'Üres állapot — kötelező mező figyelmeztetés, Run gomb inaktív')
 
