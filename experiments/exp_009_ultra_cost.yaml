@@ -90,9 +90,10 @@ cost_tracking:
   absolute_cost_estimate: "< $0.05 per pipeline run"
 
 robustness_tests:
-  - edge_case_very_low_maturity_input
-  - large_document_near_token_limit
-  description: "Ultra cost konfig esetén különösen fontos az edge-case robustness vizsgálata"
+  cases:
+    - edge_case_very_low_maturity_input
+    - large_document_near_token_limit
+  description: "Ultra cost konfig esetén kulonosen fontos az edge-case robustness vizsgalata"
 
 expected_outcome: >
   Ez a kísérlet valószínűleg a legalacsonyabb Quality-t adja, de értékes adat.

@@ -80,7 +80,8 @@ evaluation:
     - bert_score
 
 ablation_plan:
-  - compare_content_writer_output_vs_exp007_writer_heavy
+  steps:
+    - compare_content_writer_output_vs_exp007_writer_heavy
   description: >
     Kulcskérdés: melyik stratégia jobb? Nagy befektetés az elején (analyst-heavy)
     vagy a végén (writer-heavy)? Az ablációs összehasonlítás direkt választ ad.

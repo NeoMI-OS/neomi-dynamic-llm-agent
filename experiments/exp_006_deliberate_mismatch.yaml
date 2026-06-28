@@ -5,10 +5,10 @@ date: "2026-06-28"
 status: planned
 
 hypothesis: >
-  Ha szándékosan „nem megfelelő" modelleket rendelünk egyes node-okhoz, kreatív
+  Ha szándékosan nem megfelelő" modelleket rendelünk egyes node-okhoz, kreatív
   feszültség keletkezik a pipeline-ban. A dokument-kutatás (NeoMI modelcombination
   kísérletterv) szerint a deliberate mismatch képes növelni a Critic agent
-  hatékonyságát és az output novelty-t, mert a „rosszul illő" modell
+  hatékonyságát és az output novelty-t, mert a rosszul illő" modell
   meglepő, de értékes perspektívát visz be a láncba.
   Hipotézis: az exp-006 Critic hit rate-je 15–20%-kal magasabb lesz az exp-001
   baseline-nál, és a Quality nem csökken 10%-nál többet.
@@ -21,7 +21,7 @@ pipeline:
       provider: openai
       model: gpt-4o
       temperature: 0.6  # magasabb hőmérséklet = kevésbé determinisztikus kontextus-értelmezés
-      role: "Kontextus elemzés – szándékosan „túl-erős" modell, ami saját értelmezési kereteit hozza be"
+      role: "Kontextus elemzés – szandekosan tul-eros modell, ami sajat ertelmezesi kereteit hozza be"
       rationale: >
         MISMATCH: GPT-4o kontextus-elemzőként hajlamos gazdag, de esetleg túl tág
         interpretációt adni – ez feszültséget teremt a precíziós needs_analyzerrel
@@ -30,7 +30,7 @@ pipeline:
       provider: anthropic
       model: claude-haiku-4-5
       temperature: 0.2
-      role: "Szükséglet lista – „alul-erős" modell kényszeríti az esszenciális igények kiemelését"
+      role: "Szükséglet lista – alul-erős modell kényszeríti az esszenciális igények kiemelését"
       rationale: >
         MISMATCH: Haiku korlátozott kapacitása miatt csak a legfontosabb szükségletek
         kerülnek be – szűrő-hatás, amely pontosítja a terjengős GPT-4o kontextust
@@ -48,7 +48,7 @@ pipeline:
       provider: google
       model: gemini-2.5-flash
       temperature: 0.5
-      role: "Tartalom írás – gyors modell „fordítja le" a komplex Opus-struktúrát egyszerű szövegre"
+      role: "Tartalom írás – gyors modell fordítja le a komplex Opus-struktúrát egyszerű szövegre"
       rationale: >
         MISMATCH: Flash a Opus által épített komplex struktúrát egyszerűsíti – kiderül,
         hogy mekkora az információveszteség a komplex terv → olcsó writer átmenetnél
@@ -99,7 +99,7 @@ expected_outcome: >
   feszültségek értékes, szokatlan perspektívákat hoznak be, és a Critic agent
   kifejezetten jó teljesítményt mutat. Legrosszabb esetben: az inkonzisztenciák
   rontják a Quality-t. Mindkét végeredmény értékes kutatási adat.
-  Publikálható hipotézis: „deliberate mismatch növeli a Critic hatékonyságát 18%-kal".
+  Publikálható hipotézis: deliberate mismatch növeli a Critic hatékonyságát 18%-kal".
 
 tags:
   - deliberate_mismatch

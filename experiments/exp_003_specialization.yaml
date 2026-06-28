@@ -68,8 +68,9 @@ evaluation:
     - g_eval
 
 ablation_plan:
-  - swap_context_analyst_to_gpt4o_mini
-  - swap_content_writer_to_sonnet
+  steps:
+    - swap_context_analyst_to_gpt4o_mini
+    - swap_content_writer_to_sonnet
   description: "Azonosítsuk, melyik node-csere okozza a legnagyobb minőségesést"
 
 cost_tracking:

@@ -71,9 +71,10 @@ evaluation:
     - bert_score
 
 robustness_tests:
-  - edge_case_very_low_maturity_input
-  - large_document_near_token_limit
-  - emotionally_loaded_input
+  cases:
+    - edge_case_very_low_maturity_input
+    - large_document_near_token_limit
+    - emotionally_loaded_input
   sensitivity_analysis: true
 
 cost_tracking:
