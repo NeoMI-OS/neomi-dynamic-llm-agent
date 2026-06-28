@@ -24,20 +24,28 @@ LOGS_DIR = Path(__file__).parent.parent / "experiment_logs"
 
 
 def load_experiment(experiment_id: str) -> dict:
-    """Betölt egy YAML kísérlet-konfigurációt ID alapján."""
-    pattern = str(EXPERIMENTS_DIR / f"{experiment_id}_*.yaml")
-    matches = glob_module.glob(pattern)
-    if not matches:
-        # Próbáljuk a pontos fájlnévvel is
-        direct = EXPERIMENTS_DIR / f"{experiment_id}.yaml"
-        if direct.exists():
-            matches = [str(direct)]
+    """Betölt egy YAML kísérlet-konfigurációt ID alapján.
+    Illeszkedik: exp-003 → exp_003_*.yaml és exp-003_*.yaml alakokra is.
+    """
+    # Próbáljuk kötőjellel és aláhúzással is (exp-003 → exp_003)
+    normalized = experiment_id.replace("-", "_")
+    candidates = [
+        str(EXPERIMENTS_DIR / f"{experiment_id}_*.yaml"),   # exp-003_*.yaml
+        str(EXPERIMENTS_DIR / f"{normalized}_*.yaml"),       # exp_003_*.yaml
+        str(EXPERIMENTS_DIR / f"{experiment_id}.yaml"),      # exp-003.yaml
+        str(EXPERIMENTS_DIR / f"{normalized}.yaml"),         # exp_003.yaml
+    ]
+    matches = []
+    for pattern in candidates:
+        matches = glob_module.glob(pattern)
+        if matches:
+            break
     if not matches:
         raise FileNotFoundError(
             f"Nem található kísérlet-konfig: {experiment_id} "
-            f"(keresett minta: {pattern})"
+            f"(keresett minták: {candidates})"
         )
-    with open(matches[0], encoding="utf-8") as f:
+    with open(sorted(matches)[0], encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
