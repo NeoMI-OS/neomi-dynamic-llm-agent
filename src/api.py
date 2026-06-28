@@ -7,8 +7,11 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+import json
+import asyncio
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
@@ -149,7 +152,7 @@ async def list_experiments():
 
 @app.post("/pipeline/run")
 async def run_pipeline_experiment(request: PipelineRunRequest):
-    """Futtat egyetlen kísérletet és visszaadja az eredményt."""
+    """Futtat egyetlen kísérletet és visszaadja az eredményt (szinkron)."""
     try:
         record = run_experiment(
             experiment_id=request.experiment_id,
@@ -173,6 +176,168 @@ async def run_pipeline_experiment(request: PipelineRunRequest):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/pipeline/run/stream")
+async def run_pipeline_stream(request: PipelineRunRequest):
+    """
+    Futtat egyetlen kísérletet SSE streaming-gel.
+    Minden node befejezésekor azonnal küld egy eseményt.
+    Használd curl --no-buffer vagy EventSource JS API-val.
+    """
+    import concurrent.futures
+    from experiment_runner import load_experiment, _extract_node_configs
+    from pipeline import (
+        _get_llm, _call_node, _update_metrics,
+        node_context_analyst, node_needs_analyzer, node_curriculum_designer,
+        node_content_writer, node_critic, PipelineState
+    )
+    import uuid, time
+    from datetime import datetime, timezone
+
+    async def event_stream():
+        def sse(event: str, data: dict) -> str:
+            return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+        run_id = f"run-{uuid.uuid4().hex[:8]}"
+        yield sse("start", {
+            "run_id": run_id,
+            "experiment_id": request.experiment_id,
+            "message": "Pipeline indítása..."
+        })
+
+        try:
+            cfg = load_experiment(request.experiment_id)
+            node_configs = _extract_node_configs(cfg)
+        except FileNotFoundError as e:
+            yield sse("error", {"message": str(e)})
+            return
+
+        state: PipelineState = {
+            "input_document": request.input_document,
+            "purpose": request.purpose,
+            "experiment_id": request.experiment_id,
+            "node_configs": node_configs,
+            "context_output": "", "needs_output": "",
+            "curriculum_output": "", "content_output": "", "critic_output": "",
+            "node_timings": {}, "node_tokens": {}, "node_costs_usd": {},
+            "errors": [],
+        }
+
+        nodes = [
+            ("context_analyst",    node_context_analyst,    "Kontextus elemzés"),
+            ("needs_analyzer",     node_needs_analyzer,     "Szükséglet elemzés"),
+            ("curriculum_designer", node_curriculum_designer, "Tananyag tervezés"),
+            ("content_writer",     node_content_writer,     "Tartalom írás"),
+            ("critic",             node_critic,             "Kritikai értékelés"),
+        ]
+
+        loop = asyncio.get_event_loop()
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+        for i, (node_name, node_fn, label) in enumerate(nodes, 1):
+            yield sse("node_start", {
+                "node": node_name,
+                "label": label,
+                "step": f"{i}/5",
+                "model": f"{node_configs.get(node_name, {}).get('provider','?')}/{node_configs.get(node_name, {}).get('model','?')}"
+            })
+
+            t0 = time.time()
+            state = await loop.run_in_executor(executor, node_fn, state)
+            elapsed = round(time.time() - t0, 2)
+
+            tokens  = state["node_tokens"].get(node_name, 0)
+            cost    = state["node_costs_usd"].get(node_name, 0)
+
+            # Kimenet preview (első 300 karakter)
+            output_key = {
+                "context_analyst": "context_output",
+                "needs_analyzer": "needs_output",
+                "curriculum_designer": "curriculum_output",
+                "content_writer": "content_output",
+                "critic": "critic_output",
+            }[node_name]
+            preview = state[output_key][:300] + ("..." if len(state[output_key]) > 300 else "")
+
+            yield sse("node_done", {
+                "node": node_name,
+                "label": label,
+                "step": f"{i}/5",
+                "latency_s": elapsed,
+                "tokens": tokens,
+                "cost_usd": round(cost, 5),
+                "output_preview": preview,
+                "errors": [e for e in state["errors"] if node_name in e],
+            })
+
+        # Összesített metrikák
+        total_cost    = sum(state["node_costs_usd"].values())
+        total_tokens  = sum(state["node_tokens"].values())
+        total_latency = sum(state["node_timings"].values())
+
+        yield sse("pipeline_done", {
+            "run_id": run_id,
+            "total_tokens": total_tokens,
+            "total_cost_usd": round(total_cost, 5),
+            "total_latency_seconds": round(total_latency, 2),
+            "errors": state["errors"],
+        })
+
+        if request.auto_evaluate:
+            yield sse("evaluating", {"message": "LLM Judge értékelés fut..."})
+            from experiment_evaluator import evaluate_run
+            from experiment_logger import ExperimentLogger
+
+            record = {
+                "run_id": run_id,
+                "experiment_id": request.experiment_id,
+                "experiment_name": cfg.get("name", ""),
+                "optimization_strategy": cfg.get("optimization_strategy", ""),
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+                "purpose": request.purpose,
+                "node_configs": node_configs,
+                "outputs": {
+                    "context": state["context_output"],
+                    "needs": state["needs_output"],
+                    "curriculum": state["curriculum_output"],
+                    "content": state["content_output"],
+                    "critic": state["critic_output"],
+                },
+                "metrics": {
+                    "node_timings": state["node_timings"],
+                    "node_tokens": state["node_tokens"],
+                    "node_costs_usd": state["node_costs_usd"],
+                    "total_tokens": total_tokens,
+                    "total_cost_usd": round(total_cost, 5),
+                    "total_latency_seconds": round(total_latency, 2),
+                },
+                "errors": state["errors"],
+                "tags": cfg.get("tags", []),
+            }
+
+            judge_cfg = cfg.get("evaluation", {})
+            evaluation = await loop.run_in_executor(executor, evaluate_run, record, judge_cfg)
+            record["evaluation"] = evaluation
+            ExperimentLogger(LOGS_DIR).log(record)
+
+            yield sse("evaluation_done", {
+                "composite_score": evaluation.get("composite_score"),
+                "dimension_scores": evaluation.get("dimension_scores"),
+                "critic_issues": evaluation.get("critic_issues_count"),
+            })
+
+        yield sse("done", {"run_id": run_id, "message": "Kísérlet befejezve."})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 
 @app.post("/pipeline/series")
