@@ -1,0 +1,41 @@
+name: Manual Cloud Build Trigger
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch neve (alapértelmezett: az aktuális branch)'
+        required: false
+        default: ''
+
+jobs:
+  trigger-cloud-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Trigger Cloud Build
+        run: |
+          BRANCH="${{ github.event.inputs.branch }}"
+          if [ -z "$BRANCH" ]; then
+            BRANCH="${{ github.ref_name }}"
+          fi
+          echo "Cloud Build indítása a(z) '$BRANCH' branch-ről..."
+          gcloud builds submit \
+            --config=cloudbuild.yaml \
+            --substitutions=_BRANCH_NAME=$BRANCH \
+            --no-source \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --region=europe-west1 \
+            .
+        env:
+          CLOUDSDK_CORE_PROJECT: ${{ secrets.GCP_PROJECT_ID }}

@@ -1,0 +1,148 @@
+# NeoMI Kísérlet Értékelési Keretrendszer
+# Forrás: modelcombinationexperiments.md.docx + NeoMI_Handbook.docx
+# Verzió: 1.0 | Dátum: 2026-06-28
+
+composite_score:
+  formula: "Final_Score = (0.4 × Quality) + (0.2 × (1/Cost_norm)) + (0.15 × (1/Latency_norm)) + (0.15 × Robustness) + (0.1 × Diversity)"
+  normalization: "Minden dimenzió 0–1 skálára normalizálva a kísérlet-sorozat min/max értékei alapján"
+  pareto_front: "A nem dominált megoldások halmaza Q/Cost/Latency/Robustness dimenziókban"
+
+dimensions:
+
+  quality:
+    weight: 0.40
+    components:
+      human_eval:
+        weight: 0.50
+        evaluators: 3
+        blind: true
+        scale: "1–10"
+        criteria:
+          - name: completeness
+            description: "Minden szükséges témakör lefedett-e?"
+          - name: coherence
+            description: "Logikailag összefüggő-e a tartalom?"
+          - name: usability
+            description: "Valóban használható oktatási anyag-e?"
+          - name: maturity_alignment
+            description: "Megfelel-e a célcsoport érettségi szintjének?"
+          - name: risk_coverage
+            description: "Lefedett-e minden azonosított kockázat/korlát?"
+      llm_judge:
+        weight: 0.30
+        judge_models:
+          primary: "claude-opus-4-8"
+          secondary: "gpt-4o"
+        scale: "1–100"
+        output_format: "JSON: {score: int, justification: str, per_dimension_scores: dict}"
+        dimensions:
+          - "GOAL/AUDIENCE/MATURITY/CONSTRAINTS alignment"
+          - "Logical consistency through Context→Needs→Curriculum→Writer→Critic chain"
+          - "Number and severity of issues found by Critic agent"
+          - "Readability and pedagogical usability"
+      automated_metrics:
+        weight: 0.20
+        metrics:
+          - name: rouge_l
+            description: "Longest Common Subsequence alapú szöveg-hasonlóság"
+          - name: bert_score
+            description: "BERT embedding alapú szemantikai hasonlóság"
+          - name: g_eval
+            description: "GPT-alapú minőség-metrika (NLG Evaluation)"
+
+  cost:
+    weight: 0.20
+    direction: "minimize (invertált a composite score-ban)"
+    components:
+      token_usage_per_node: true
+      total_pipeline_cost_usd: true
+      derived_metric: "Quality / Cost_per_1000_tokens"
+    pricing_sources:
+      openai: "platform.openai.com/docs/pricing"
+      anthropic: "anthropic.com/api"
+      google: "ai.google.dev/pricing"
+
+  latency:
+    weight: 0.15
+    direction: "minimize (invertált)"
+    components:
+      end_to_end_seconds: true
+      node_level_breakdown: true
+      p95_latency: true
+      bottleneck_identification: true
+
+  robustness:
+    weight: 0.15
+    components:
+      variance_across_inputs:
+        description: "Minőség szórása 5–10 különböző dokumentum-típus esetén"
+        metric: "Standard deviation of Quality scores"
+      failure_rate:
+        description: "Chain slippage – hány esetben omlik össze a pipeline?"
+        threshold_acceptable: 0.02  # max 2% failure
+      edge_cases:
+        - name: very_low_maturity_input
+          description: "Rendkívül kezdő szintű célközönség"
+        - name: large_document_near_token_limit
+          description: "Token limit közelében lévő nagy dokumentum"
+        - name: emotionally_loaded_input
+          description: "Érzelmileg terhelt, szenzitív témájú tartalom"
+      sensitivity_analysis:
+        method: "Node-swap: egyszerre egy node modelljét cseréljük le és mérjük a Quality deltát"
+        identifies: "Melyik node a legérzékenyebb a modellcserére"
+
+  diversity_and_synergy:
+    weight: 0.10
+    components:
+      embedding_diversity:
+        description: "Cosinus-hasonlóság az 5 kísérlet kimenetei között"
+        metric: "Average cosine similarity; lower = more diverse"
+        tool: "sentence-transformers/all-MiniLM-L6-v2"
+      novelty_score:
+        description: "LLM Judge értékeli, hogy az output tartalmaz-e exp-001-hez képest új meglátásokat"
+        scale: "1–10"
+        judge: "claude-opus-4-8"
+      fusion_gain:
+        formula: "Fusion_Score - max(Individual_Model_Scores)"
+        description: "A kompozíció valódi hozzáadott értéke az egyedi modellek feletti"
+      critic_hit_rate:
+        description: "Hány valódi, javítható problémát talál a Critic agent"
+        baseline_comparison: true
+
+test_inputs:
+  description: "5–10 különböző dokumentum + cél párosítás a kísérletekhez"
+  diversity_criteria:
+    - domain_variety: ["technológia", "orvostudomány", "pénzügy", "pedagógia", "jog"]
+    - maturity_levels: ["kezdő", "haladó", "szakértő"]
+    - document_sizes: ["rövid_500_token", "közepes_2000_token", "hosszú_8000_token"]
+  minimum_inputs: 5
+  recommended_inputs: 10
+
+scoring_pipeline:
+  step1: "Futtasd mind a 10 kísérletet azonos input készleten"
+  step2: "Gyűjtsd a per-node token és latency adatokat"
+  step3: "Futtasd az LLM Judge-ot minden kimeneten (primary + secondary)"
+  step4: "Futtasd az automatikus metrikákat (ROUGE-L, BERTScore)"
+  step5: "3 vak emberi értékelő pontozza az outputokat"
+  step6: "Számítsd az embedding-diverzitást és fusion gain-t"
+  step7: "Normalizáld az értékeket és számítsd a Composite Score-t"
+  step8: "Azonosítsd a Pareto-frontot"
+  step9: "Ablációs analízis a legjobb 2–3 konfigurációra"
+
+reporting:
+  format: "JSON per experiment + összefoglaló CSV + Pareto-front vizualizáció"
+  required_fields:
+    - experiment_id
+    - composite_score
+    - quality_score
+    - cost_usd_per_run
+    - latency_seconds_p95
+    - robustness_variance
+    - diversity_score
+    - pareto_dominated
+    - key_insight
+
+success_criteria:
+  minimum: "Legalább 2–3 kísérlet szignifikánsan (>5%) felülmúlja az összes baseline-t Q/Cost dimenzióban"
+  publishable: "Legalább 1 meglepő, publikálható insight (pl. 'deliberate mismatch +18% Critic hit rate')"
+  pareto: "Egyértelmű Pareto-front meghatározható a 10 kísérletből"

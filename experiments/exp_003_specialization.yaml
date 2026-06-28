@@ -1,0 +1,89 @@
+id: exp-003
+name: "Kognitív Specializáció – Szerepalapú modell-hozzárendelés"
+version: "1.0"
+date: "2026-06-28"
+status: planned
+
+hypothesis: >
+  A node-ok különböző kognitív képességeket igényelnek. A context_analyst
+  elsősorban gyors szövegfeldolgozást kíván; a needs_analyzer strukturált
+  logikát; a curriculum_designer tervezési és rendszerszemléletű gondolkodást;
+  a content_writer kreatív, folyamatos szöveggenerálást; a critic kritikus
+  elemző képességet. Ha minden node-ra az adott feladathoz legjobb modellt
+  rendeljük, a minőség közel kerül a teljes-GPT4o-baseline-hez, de a költség
+  40–60%-kal csökken.
+
+optimization_strategy: specialization
+
+pipeline:
+  nodes:
+    context_analyst:
+      provider: google
+      model: gemini-2.5-flash
+      temperature: 0.1
+      role: "Kontextus elemzés – gyors, strukturált szövegolvasás; cél/közönség/érettség/korlátok kinyerése"
+      rationale: "Gemini Flash: alacsony latencia, magas tokenáteresztés, erős kontextus-értelmezés"
+    needs_analyzer:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.3
+      role: "Szükséglet elemzés – mélyanalitikus tudáshézag-feltérképezés"
+      rationale: "GPT-4o: legjobb strukturált reasoning és logikai következtetés"
+    curriculum_designer:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.4
+      role: "Tananyag struktúra – moduláris tanterv, scope and sequence tervezés"
+      rationale: "GPT-4o: rendszertervező képesség, hierarchikus struktúrák"
+    content_writer:
+      provider: anthropic
+      model: claude-opus-4-8
+      temperature: 0.75
+      role: "Tartalom írás – koherens, lebilincselő oktatási tartalom"
+      rationale: "Claude Opus: ismert erőssége a hosszú koherens szövegalkotás és oktatási tartalom"
+    critic:
+      provider: anthropic
+      model: claude-sonnet-4-6
+      temperature: 0.1
+      role: "Minőség-értékelés – kritikai elemzés, hiányosságok feltárása"
+      rationale: "Claude Sonnet: megbízható evaluátor, kiváló instruction-following rubrikák esetén"
+
+evaluation:
+  scoring_weights:
+    quality: 0.40
+    cost: 0.20
+    latency: 0.15
+    robustness: 0.15
+    diversity: 0.10
+  judge_model: claude-opus-4-8
+  judge_provider: anthropic
+  judge_dimensions:
+    - goal_audience_maturity_constraints_alignment
+    - logical_consistency_through_chain
+    - critic_findings_count_and_severity
+    - readability_and_usability
+  automated_metrics:
+    - rouge_l
+    - bert_score
+    - g_eval
+
+ablation_plan:
+  steps:
+    - swap_context_analyst_to_gpt4o_mini
+    - swap_content_writer_to_sonnet
+  description: "Azonosítsuk, melyik node-csere okozza a legnagyobb minőségesést"
+
+cost_tracking:
+  per_node_token_logging: true
+  pricing_source: mixed_apis
+  derived_metric: quality_per_1000_tokens
+
+expected_outcome: >
+  Exp-001/002-vel közel azonos Quality dimenzió, de 40–60%-kal alacsonyabb Cost.
+  Diverzitás-pontszám: közepes (2 provider). A legvalószínűbb Pareto-optimal jelölt.
+
+tags:
+  - specialization
+  - mixed_providers
+  - role_based
+  - cost_efficient

@@ -1,0 +1,83 @@
+id: exp-001
+name: "Baseline – GPT-4o mindenhol"
+version: "1.0"
+date: "2026-06-28"
+status: planned
+
+hypothesis: >
+  A triviális „legerősebb modell minden node-on" konfiguráció megbízható felső
+  minőségi határt ad, de 3–10× drágább az optimalizált beállításoknál. Ez az
+  exp-001 minden további kísérlet referenciabázisa.
+
+optimization_strategy: trivial_strongest
+
+pipeline:
+  nodes:
+    context_analyst:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.2
+      role: "Kontextus elemzés – cél, célközönség, érettségi szint, korlátok"
+    needs_analyzer:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.3
+      role: "Szükséglet elemzés – tudáshézagok, tanulási célok azonosítása"
+    curriculum_designer:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.4
+      role: "Tananyag struktúra – fejezetek, modulok, módszertani keretrendszer"
+    content_writer:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.7
+      role: "Tartalom írás – részletes, lebilincselő oktatási anyag generálása"
+    critic:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.1
+      role: "Minőség-értékelés – következetesség, pontosság, fejlesztési javaslatok"
+
+evaluation:
+  scoring_weights:
+    quality: 0.40
+    cost: 0.20       # invertált – minél alacsonyabb a költség, annál jobb
+    latency: 0.15    # invertált
+    robustness: 0.15
+    diversity: 0.10
+  judge_model: claude-opus-4-8
+  judge_provider: anthropic
+  judge_dimensions:
+    - goal_audience_maturity_constraints_alignment
+    - logical_consistency_through_chain
+    - critic_findings_count_and_severity
+    - readability_and_usability
+  automated_metrics:
+    - rouge_l
+    - bert_score
+  human_eval:
+    evaluators: 3
+    scale: "1–10"
+    blind: true
+    criteria:
+      - completeness
+      - coherence
+      - usability
+      - maturity_alignment
+      - risk_coverage
+
+cost_tracking:
+  per_node_token_logging: true
+  pricing_source: openai_api
+  derived_metric: quality_per_1000_tokens
+
+expected_outcome: >
+  Magas minőségi pontszám (referencia), de maximális token-költség.
+  Pareto-front szempontjából ez az egyik sarokpont: magas Q, magas C.
+
+tags:
+  - baseline
+  - openai
+  - homogeneous
+  - trivial_strongest

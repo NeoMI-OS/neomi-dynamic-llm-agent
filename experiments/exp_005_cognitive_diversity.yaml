@@ -1,0 +1,95 @@
+id: exp-005
+name: "Kognitív Diverzitás – Maximális provider-rotáció"
+version: "1.0"
+date: "2026-06-28"
+status: planned
+
+hypothesis: >
+  A különböző provider-ek (Google, OpenAI, Anthropic) architekturálisan eltérő
+  modelljei különböző „gondolkodási mintákat" hoznak be a pipeline-ba. Ha
+  minden node-on más provider-t használunk, a láncban felépülő tudás diverzebb
+  lesz, a Critic agent több valódi problémát fog találni, és az output novelty
+  score magasabb lesz. A hipotézis az ensemble/debate irodalomból ered: a
+  heterogén panel jobb, mint a homogén, még ha az egyedi modellek gyengébbek is.
+
+optimization_strategy: cognitive_diversity
+
+pipeline:
+  nodes:
+    context_analyst:
+      provider: google
+      model: gemini-2.5-flash
+      temperature: 0.2
+      role: "Kontextus elemzés – Google NLP erőssége: tömör, strukturált kinyerés"
+      rationale: "Google Gemini: erős multimodális kontextus-feldolgozás, alacsony TTFT"
+    needs_analyzer:
+      provider: openai
+      model: gpt-4o-mini
+      temperature: 0.3
+      role: "Szükséglet elemzés – OpenAI logikai erőssége: strukturált gap-analysis"
+      rationale: "OpenAI: verhetetlen instruction-following listák és analitikus struktúrák esetén"
+    curriculum_designer:
+      provider: anthropic
+      model: claude-sonnet-4-6
+      temperature: 0.5
+      role: "Tananyag tervezés – Anthropic Constitutional AI által formált strukturált gondolkodás"
+      rationale: "Claude Sonnet: különleges erősség komplex, többrétegű terveknél és pedagógiai keretrendszereknél"
+    content_writer:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.75
+      role: "Tartalom írás – OpenAI erőssége: fluens, részletes angolszász tananyag-stílus"
+      rationale: "GPT-4o: legjobb hosszú szöveg koherencia és olvashatóság"
+    critic:
+      provider: google
+      model: gemini-2.5-pro
+      temperature: 0.1
+      role: "Kritikai értékelés – Google erőssége: tényszerű ellenőrzés, faktualitás"
+      rationale: "Gemini Pro: erős faktualitás-ellenőrzés, eltérő perspektíva a korábbi node-októl"
+
+evaluation:
+  scoring_weights:
+    quality: 0.40
+    cost: 0.20
+    latency: 0.15
+    robustness: 0.15
+    diversity: 0.10
+  judge_model: claude-opus-4-8
+  judge_provider: anthropic
+  judge_dimensions:
+    - goal_audience_maturity_constraints_alignment
+    - logical_consistency_through_chain
+    - critic_findings_count_and_severity
+    - readability_and_usability
+  automated_metrics:
+    - rouge_l
+    - bert_score
+    - embedding_cosine_similarity_vs_baseline
+
+diversity_metrics:
+  embedding_diversity:
+    description: "Cosinus-hasonlóság a 8 kísérlet kimenetei között – alacsonyabb = diverzebb"
+    target: "< 0.75 átlagos hasonlóság a baseline-hoz képest"
+  novelty_score:
+    judge: claude-opus-4-8
+    prompt_template: "Értékeld, hogy ez az output tartalmaz-e a baseline-hoz képest új meglátásokat (1–10)"
+  critic_hit_rate:
+    description: "Hány valódi problémát talál a Critic agent ennél a konfigurációnál vs. baseline"
+
+cost_tracking:
+  per_node_token_logging: true
+  pricing_source: mixed_apis
+  derived_metric: quality_per_1000_tokens
+
+expected_outcome: >
+  Közepes Quality – valószínűleg nem éri el a teljes GPT-4o baseline-t, de
+  a Diversity & Synergy dimenzióban ez a kísérlet teljesít a legjobban.
+  A Critic agent több egyedi problémát azonosít (a különböző „gondolkodásmódok"
+  eltérő feltételezésekkel írnak, így a Critic több inkonzisztenciát talál).
+  Novelty score várhatóan 15–25%-kal magasabb a baseline-nál.
+
+tags:
+  - cognitive_diversity
+  - provider_rotation
+  - all_three_providers
+  - novelty_focused

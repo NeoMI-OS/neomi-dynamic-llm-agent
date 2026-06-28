@@ -1,0 +1,147 @@
+id: exp-010
+name: "Hibrid Eszkalációs Routing – Confidence-alapú fallback kaszkád"
+version: "1.0"
+date: "2026-06-28"
+status: planned
+
+hypothesis: >
+  A NeoMI Handbook (Chapter 4, Hybrid escalation routing) és a AIOS könyv
+  (Dynamic Model Selection fejezet) szerint egy confidence-based escalation
+  rendszer 40–70%-os token-megtakarítást érhet el az egyszerű eseteken, miközben
+  a komplex eseteken automatikusan erősebb modellre vált. A hipotézis: az átlagos
+  minőség a drágább konfigurációkhoz (~exp-001) közelít, míg az átlagos cost
+  az olcsóbb konfigurációk (exp-004) szintjén marad.
+
+optimization_strategy: hybrid_escalation_routing
+
+pipeline:
+  nodes:
+    context_analyst:
+      primary:
+        provider: google
+        model: gemini-2.5-flash-lite
+        temperature: 0.1
+      fallback:
+        provider: openai
+        model: gpt-4o-mini
+        temperature: 0.1
+      escalation_trigger:
+        confidence_threshold: 0.75
+        method: "self_consistency_check"
+        description: >
+          Ha a Flash Lite kimenete nem tartalmaz mind a négy mezőt
+          (goal, audience, maturity, constraints) kellő részletességgel,
+          automatikusan átvált gpt-4o-mini-re
+      role: "Kontextus elemzés"
+    needs_analyzer:
+      primary:
+        provider: openai
+        model: gpt-4o-mini
+        temperature: 0.3
+      fallback:
+        provider: openai
+        model: gpt-4o
+        temperature: 0.3
+      escalation_trigger:
+        confidence_threshold: 0.70
+        method: "output_completeness_check"
+        description: >
+          Ha a szükségletek listája kevesebb mint 5 elemet tartalmaz,
+          vagy az elemek szokatlanul rövidek, eszkalál gpt-4o-ra
+      role: "Szükséglet elemzés"
+    curriculum_designer:
+      primary:
+        provider: anthropic
+        model: claude-sonnet-4-6
+        temperature: 0.5
+      fallback:
+        provider: anthropic
+        model: claude-opus-4-8
+        temperature: 0.5
+      escalation_trigger:
+        confidence_threshold: 0.75
+        method: "structure_depth_check"
+        description: >
+          Ha a generált tananyag-struktúra kevesebb mint 3 hierarchikus
+          szintet tartalmaz, eszkalál Opus-ra
+      role: "Tananyag tervezés"
+    content_writer:
+      primary:
+        provider: anthropic
+        model: claude-sonnet-4-6
+        temperature: 0.75
+      fallback:
+        provider: anthropic
+        model: claude-opus-4-8
+        temperature: 0.75
+      escalation_trigger:
+        confidence_threshold: 0.80
+        method: "length_and_coherence_check"
+        description: >
+          Ha a generált tartalom a tervezett hossz <70%-a, vagy ha
+          a bekezdések koherenciája (self-BLEU) alacsony, eszkalál Opus-ra
+      role: "Tartalom írás"
+    critic:
+      primary:
+        provider: openai
+        model: gpt-4o
+        temperature: 0.1
+      # Critic esetén nincs fallback – az értékelési minőségnek konzisztensnek kell lennie
+      role: "Kritikai értékelés"
+
+escalation_monitoring:
+  log_all_escalations: true
+  metrics:
+    - escalation_rate_per_node
+    - cost_with_vs_without_escalation
+    - quality_delta_primary_vs_fallback
+  alert_threshold:
+    escalation_rate_above: 0.40  # Ha >40% az esetek eszkalálnak, a fallback legyen az alapértelmezett
+
+evaluation:
+  scoring_weights:
+    quality: 0.40
+    cost: 0.20
+    latency: 0.15
+    robustness: 0.15
+    diversity: 0.10
+  judge_model: claude-opus-4-8
+  judge_provider: anthropic
+  judge_dimensions:
+    - goal_audience_maturity_constraints_alignment
+    - logical_consistency_through_chain
+    - critic_findings_count_and_severity
+    - readability_and_usability
+  automated_metrics:
+    - rouge_l
+    - bert_score
+
+cost_tracking:
+  per_node_token_logging: true
+  pricing_source: mixed_apis
+  derived_metric: quality_per_1000_tokens
+  target_cost_vs_baseline: "Átlagos esetben exp-004 szintje; komplex esetben exp-003 szintje"
+
+expected_outcome: >
+  Ez a kísérlet a legkomplexebb implementációt igényli, de a legtöbb üzleti
+  értéket ígéri production kontextusban. Az escalation rate várhatóan 20–40%
+  között mozog, ami azt jelenti, hogy az esetek 60–80%-ában a primer (olcsóbb)
+  modell elegendő. A hosszú távú tanulás (bandit-inspired routing) alapjaként
+  is szolgálhat: a logger adatai tanítják a routert.
+
+post_experiment_actions:
+  if_successful:
+    - "Implementáld a confidence checker logikát a nodes.py-ban"
+    - "Hozz létre escalation_log.jsonl perzisztenciát"
+    - "Építs bandit routing prototípust az escalation adatokból"
+  if_escalation_rate_too_high:
+    - "Finomítsd az escalation_trigger threshold-okat"
+    - "Vagy tegyük a fallback modellt alapértelmezetté az adott node-on"
+
+tags:
+  - hybrid_escalation
+  - confidence_based_routing
+  - adaptive
+  - production_ready
+  - bandit_foundation
+  - handbook_chapter4_implementation

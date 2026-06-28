@@ -1,0 +1,100 @@
+id: exp-007
+name: "Writer-Heavy – Legjobb modellek a kimenet-kritikus node-okon"
+version: "1.0"
+date: "2026-06-28"
+status: planned
+
+hypothesis: >
+  A végfelhasználó számára látható kimenetet a content_writer és a critic
+  node-ok határozzák meg. Ha ezeken a node-okon a legerősebb modellt alkalmazzuk,
+  és a korai pipeline-lépéseken (context_analyst, needs_analyzer) olcsóbb
+  modellekkel spórolunk, a felhasználói minőségérzet közel azonos marad a
+  baseline-nal, miközben a teljes Cost 35–50%-kal csökken.
+
+optimization_strategy: writer_heavy
+
+pipeline:
+  nodes:
+    context_analyst:
+      provider: google
+      model: gemini-2.5-flash-lite
+      temperature: 0.1
+      role: "Gyors kontextus-kinyerés – minimális modell, strukturált JSON kimenet"
+      rationale: "Legolcsóbb és leggyorsabb – a kontextus-kinyerés jól specifikált, nem igényel nagy modellt"
+      node_criticality: low
+    needs_analyzer:
+      provider: openai
+      model: gpt-4o-mini
+      temperature: 0.3
+      role: "Szükséglet lista – kellően pontos analitikus output kis modellel"
+      rationale: "GPT-4o-mini megfelelő a strukturált listing feladathoz"
+      node_criticality: low
+    curriculum_designer:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.5
+      role: "Tananyag struktúra – közepes szintű modell, a struktúra minősége számít"
+      rationale: "GPT-4o: jó egyensúly; a tervező node közepes kritikalitású"
+      node_criticality: medium
+    content_writer:
+      provider: anthropic
+      model: claude-opus-4-8
+      temperature: 0.75
+      role: "Tartalom generálás – LEGKRITIKUSABB node, Claude Opus kreatív erőssége"
+      rationale: >
+        Claude Opus: bizonyítottan legjobb hosszú koherens szöveg, oktatási tartalom,
+        és érzelmileg rezonáns narráció. Ez a node közvetlenül hat a felhasználói
+        elégedettségre.
+      node_criticality: critical
+    critic:
+      provider: anthropic
+      model: claude-opus-4-8
+      temperature: 0.1
+      role: "Mély kritikai elemzés – a legjobb modell a legalaposabb review-hoz"
+      rationale: >
+        Opus critic: azonosítja az összes inkonzisztenciát, javaslatai konkrétak.
+        A kritika minősége visszahat a tartalom iteratív javíthatóságára.
+      node_criticality: critical
+
+evaluation:
+  scoring_weights:
+    quality: 0.40
+    cost: 0.20
+    latency: 0.15
+    robustness: 0.15
+    diversity: 0.10
+  judge_model: gpt-4o
+  judge_provider: openai
+  judge_dimensions:
+    - goal_audience_maturity_constraints_alignment
+    - logical_consistency_through_chain
+    - critic_findings_count_and_severity
+    - readability_and_usability
+  automated_metrics:
+    - rouge_l
+    - bert_score
+
+node_criticality_rationale:
+  low: "Adatkinyerés – jól specifikált, kis modell elegendő"
+  medium: "Tervezés – strukturált, de nem kreatív; GPT-4o megfelelő"
+  critical: "Kimenet – közvetlenül felhasználói élmény; legerősebb modell szükséges"
+
+cost_tracking:
+  per_node_token_logging: true
+  pricing_source: mixed_apis
+  derived_metric: quality_per_1000_tokens
+  target_cost_reduction_vs_baseline: "35–50%"
+
+expected_outcome: >
+  Quality közel azonos az exp-001 baseline-nal (max. 5–8% esés), mert a
+  felhasználó által látott tartalom a legjobb modellel készül.
+  Cost 35–50%-kal alacsonyabb mint exp-001.
+  A Pareto-fronton exp-003 (specialization) és exp-007 (writer-heavy) valószínűleg
+  versenyezni fog a legjobb Q/Cost arányért.
+
+tags:
+  - writer_heavy
+  - output_focused
+  - anthropic_writer
+  - cost_efficient
+  - production_candidate

@@ -1,0 +1,75 @@
+id: exp-002
+name: "Baseline – Claude Opus 4.8 mindenhol"
+version: "1.0"
+date: "2026-06-28"
+status: planned
+
+hypothesis: >
+  Alternatív triviális „legerősebb modell" konfiguráció, ezúttal Anthropic
+  Claude Opus 4.8-cal. Várható, hogy kreatív tartalomnál jobb minőséget ad mint
+  exp-001, de analitikus node-okon (needs_analyzer, curriculum_designer)
+  közelítőleg azonos teljesítményt mutat. Legfőbb cél: az Anthropic vs. OpenAI
+  homogén baseline összehasonlítása.
+
+optimization_strategy: trivial_strongest
+
+pipeline:
+  nodes:
+    context_analyst:
+      provider: anthropic
+      model: claude-opus-4-8
+      temperature: 0.2
+      role: "Kontextus elemzés – cél, célközönség, érettségi szint, korlátok"
+    needs_analyzer:
+      provider: anthropic
+      model: claude-opus-4-8
+      temperature: 0.3
+      role: "Szükséglet elemzés – tudáshézagok, tanulási célok azonosítása"
+    curriculum_designer:
+      provider: anthropic
+      model: claude-opus-4-8
+      temperature: 0.4
+      role: "Tananyag struktúra – fejezetek, modulok, módszertani keretrendszer"
+    content_writer:
+      provider: anthropic
+      model: claude-opus-4-8
+      temperature: 0.7
+      role: "Tartalom írás – részletes, lebilincselő oktatási anyag generálása"
+    critic:
+      provider: anthropic
+      model: claude-opus-4-8
+      temperature: 0.1
+      role: "Minőség-értékelés – következetesség, pontosság, fejlesztési javaslatok"
+
+evaluation:
+  scoring_weights:
+    quality: 0.40
+    cost: 0.20
+    latency: 0.15
+    robustness: 0.15
+    diversity: 0.10
+  judge_model: gpt-4o
+  judge_provider: openai
+  judge_dimensions:
+    - goal_audience_maturity_constraints_alignment
+    - logical_consistency_through_chain
+    - critic_findings_count_and_severity
+    - readability_and_usability
+  automated_metrics:
+    - rouge_l
+    - bert_score
+
+cost_tracking:
+  per_node_token_logging: true
+  pricing_source: anthropic_api
+  derived_metric: quality_per_1000_tokens
+
+expected_outcome: >
+  Írói minőségben versenyképes exp-001-gyel, esetleg jobb kreatív koherencia.
+  Hasonlóan magas Cost dimenzió. Diverzitás-pontszám: alacsony (homogén panel).
+
+tags:
+  - baseline
+  - anthropic
+  - homogeneous
+  - trivial_strongest

@@ -1,0 +1,111 @@
+id: exp-008
+name: "Analyst-Heavy – Legjobb modellek a megértési node-okon"
+version: "1.0"
+date: "2026-06-28"
+status: planned
+
+hypothesis: >
+  A GIGO (Garbage In, Garbage Out) elvének AI pipeline-okra alkalmazva: ha az
+  első két node (context_analyst, needs_analyzer) rendkívül pontos, gazdag
+  struktúrájú kimenetet produkál, a downstream node-ok (designer, writer, critic)
+  olcsóbb modellekkel is magas minőséget érhetnek el. A befektetés a megértési
+  fázisba koncentrálódik.
+
+optimization_strategy: analyst_heavy
+
+pipeline:
+  nodes:
+    context_analyst:
+      provider: anthropic
+      model: claude-opus-4-8
+      temperature: 0.1
+      role: "Kontextus elemzés – a legjobb modell a legprecízebb input-értelmezéshez"
+      rationale: >
+        Claude Opus: instruction-following és egzakt kontextus-kinyerés terén kivételes.
+        Egy jó kontextus-elemzés megakadályozza a hibák szaporodását a pipeline-ban.
+      node_criticality: critical
+    needs_analyzer:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.2
+      role: "Szükséglet elemzés – mély logikai gap-analysis az erős kontextus alapján"
+      rationale: >
+        GPT-4o: strukturált reasoning terén vezető; itt a legfontosabb, hogy a
+        szükségletek listája pontos és teljes legyen, mert a curriculum erre épül.
+      node_criticality: critical
+    curriculum_designer:
+      provider: anthropic
+      model: claude-sonnet-4-6
+      temperature: 0.5
+      role: "Tananyag struktúra – közepes modell a gazdag needs_analyzer kimenet alapján"
+      rationale: >
+        Sonnet közepes szintű modell; a hipotézis szerint a kiváló needs_analyzer
+        output elegendő iránymutatást ad ahhoz, hogy Sonnet jó struktúrát tervezzen.
+      node_criticality: medium
+    content_writer:
+      provider: openai
+      model: gpt-4o-mini
+      temperature: 0.7
+      role: "Tartalom generálás – olcsóbb writer, a struktúra minősége kompenzál"
+      rationale: >
+        Tesztelendő: vajon egy kiváló tananyag-terv alapján GPT-4o-mini is képes-e
+        megfelelő tartalmat írni? Ha igen, ez a konfiguráció rendkívül cost-hatékony.
+      node_criticality: medium
+    critic:
+      provider: google
+      model: gemini-2.5-flash
+      temperature: 0.1
+      role: "Gyors kritikai értékelés – Flash modell strukturált rubrika alapján"
+      rationale: >
+        A hipotézis: ha a tartalom jó, a kritikának nem kell mélynek lennie.
+        Flash elegendő a strukturált review-hoz; ez spórol a záróköltsége.
+      node_criticality: low
+
+evaluation:
+  scoring_weights:
+    quality: 0.40
+    cost: 0.20
+    latency: 0.15
+    robustness: 0.15
+    diversity: 0.10
+  judge_model: claude-opus-4-8
+  judge_provider: anthropic
+  judge_dimensions:
+    - goal_audience_maturity_constraints_alignment
+    - logical_consistency_through_chain
+    - critic_findings_count_and_severity
+    - readability_and_usability
+  automated_metrics:
+    - rouge_l
+    - bert_score
+
+ablation_plan:
+  steps:
+    - compare_content_writer_output_vs_exp007_writer_heavy
+  description: >
+    Kulcskérdés: melyik stratégia jobb? Nagy befektetés az elején (analyst-heavy)
+    vagy a végén (writer-heavy)? Az ablációs összehasonlítás direkt választ ad.
+
+cascade_error_analysis:
+  description: >
+    Ha az exp-008 Quality alacsony, ellenőrizni kell a hibaszaporodást:
+    a context_analyst outputját → needs_analyzer → curriculum_designer → writer.
+    Az első hibás lépés azonosítja a beruházás korlátait.
+
+cost_tracking:
+  per_node_token_logging: true
+  pricing_source: mixed_apis
+  derived_metric: quality_per_1000_tokens
+  target_cost_reduction_vs_baseline: "40–55%"
+
+expected_outcome: >
+  A GIGO-hipotézis valószínűleg részben igazolódik: a kiváló kontextus és
+  needs-elemzés segít, de a content_writer minősége kritikus tényező marad.
+  Az eredmény eldönti: érdemes-e a befektetést az input-oldalra fókuszálni,
+  vagy az output-oldal (writer-heavy, exp-007) jobb stratégia.
+
+tags:
+  - analyst_heavy
+  - gigo_hypothesis
+  - input_focused
+  - ablation_comparison_with_007
