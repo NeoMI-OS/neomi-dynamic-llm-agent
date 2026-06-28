@@ -1,0 +1,108 @@
+id: exp-009
+name: "Ultra Költség-hatékony – Minimum Viable Model minden node-on"
+version: "1.0"
+date: "2026-06-28"
+status: planned
+
+hypothesis: >
+  Az összes node-on a legolcsóbb és leggyorsabb modellek alkalmazásával
+  meghatározható a minőségi padló: mi az a legalacsonyabb Quality-szint,
+  amelyet a rendszer produkál? Ez a „performance cliff" keresési kísérlet.
+  Várható, hogy a Quality 30–50%-kal csökken az exp-001 baseline-hoz képest,
+  de a Cost 80–90%-kal alacsonyabb. Az üzleti kérdés: melyik felhasználási
+  esetben elegendő ez a minőségi szint?
+
+optimization_strategy: minimum_viable_cost
+
+pipeline:
+  nodes:
+    context_analyst:
+      provider: google
+      model: gemini-2.5-flash-lite
+      temperature: 0.1
+      role: "Kontextus kinyerés – legolcsóbb modell"
+      rationale: "Benchmark referencia: mi a legolcsóbb elfogadható megoldás?"
+      node_criticality: low
+    needs_analyzer:
+      provider: openai
+      model: gpt-4o-mini
+      temperature: 0.3
+      role: "Szükséglet lista – olcsó analitikus modell"
+      rationale: "GPT-4o-mini: 10× olcsóbb GPT-4o-nál"
+      node_criticality: low
+    curriculum_designer:
+      provider: google
+      model: gemini-2.5-flash
+      temperature: 0.5
+      role: "Tananyag struktúra – gyors Flash modell"
+      rationale: "Gemini Flash: gyors, olcsó; a hipotézis szerint itt is elfogadható output"
+      node_criticality: low
+    content_writer:
+      provider: anthropic
+      model: claude-haiku-4-5
+      temperature: 0.7
+      role: "Tartalom generálás – Haiku: legkisebb Anthropic modell"
+      rationale: >
+        Claude Haiku: rendkívül olcsó; kérdés, hogy oktatási tartalomhoz elegendő-e
+        a minőség. Ez a „performance cliff" keresés kulcspontja.
+      node_criticality: medium  # kiemelt mert a kimenet látható
+    critic:
+      provider: google
+      model: gemini-2.5-flash-lite
+      temperature: 0.1
+      role: "Kritikai értékelés – legolcsóbb Critic"
+      rationale: "Flash Lite: minimális cost, strukturált rubrika alapján elfogadható"
+      node_criticality: low
+
+evaluation:
+  scoring_weights:
+    quality: 0.40
+    cost: 0.20
+    latency: 0.15
+    robustness: 0.15
+    diversity: 0.10
+  judge_model: claude-opus-4-8
+  judge_provider: anthropic
+  judge_dimensions:
+    - goal_audience_maturity_constraints_alignment
+    - logical_consistency_through_chain
+    - critic_findings_count_and_severity
+    - readability_and_usability
+  automated_metrics:
+    - rouge_l
+    - bert_score
+
+performance_cliff_analysis:
+  description: >
+    Ha a Quality <60% a baseline-hoz képest, megtaláltuk a padlót. Ha >80%,
+    a kisebb modellek meglepően jók, és az üzleti modell átírható.
+  threshold_acceptable_quality: 0.70  # 70% of baseline is acceptable for low-stakes use cases
+  use_cases_for_low_quality_acceptable:
+    - internal_draft_generation
+    - rapid_prototype_content
+    - cost_constrained_markets
+
+cost_tracking:
+  per_node_token_logging: true
+  pricing_source: mixed_apis
+  derived_metric: quality_per_1000_tokens
+  target_cost_reduction_vs_baseline: "80–90%"
+  absolute_cost_estimate: "< $0.05 per pipeline run"
+
+robustness_tests:
+  - edge_case_very_low_maturity_input
+  - large_document_near_token_limit
+  description: "Ultra cost konfig esetén különösen fontos az edge-case robustness vizsgálata"
+
+expected_outcome: >
+  Ez a kísérlet valószínűleg a legalacsonyabb Quality-t adja, de értékes adat.
+  Ha a Quality 70%+ marad, az megkérdőjelezi a drágább konfigurációk üzleti
+  indokoltságát alacsony kritikalitású feladatokra. Ha 50% alá esik, igazolódik,
+  hogy a minimális konfiguráció nem elfogadható.
+
+tags:
+  - ultra_cost
+  - minimum_viable
+  - performance_cliff
+  - benchmark_floor
+  - cost_80pct_reduction

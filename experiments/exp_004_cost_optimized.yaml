@@ -1,0 +1,94 @@
+id: exp-004
+name: "Költség-optimalizált – Kritikus node-ok védelme olcsó periférián"
+version: "1.0"
+date: "2026-06-28"
+status: planned
+
+hypothesis: >
+  A workflow-ban a kritikus (magas hozzáadott értékű) node-ok: curriculum_designer
+  és content_writer. A perifériális node-ok (context_analyst, needs_analyzer)
+  kisebb modellekkel is megfelelően elláthatók, mert az adat-kinyerési feladatok
+  kevésbé kreativitás-igényesek. A critic gyors, szabályalapú visszajelzést ad.
+  Ha a nem-kritikus node-okon 70–80%-kal olcsóbb modelleket használunk, a teljes
+  cost 50–70%-kal csökken, miközben a minőségesés <10%.
+
+optimization_strategy: cost_aware
+
+pipeline:
+  nodes:
+    context_analyst:
+      provider: google
+      model: gemini-2.5-flash-lite
+      temperature: 0.1
+      role: "Kontextus kinyerés – strukturált JSON output cél/közönség/érettség/korlátokkal"
+      rationale: "Legolcsóbb, leggyorsabb modell – az input-kinyerési feladat nem igényel mély kreativitást"
+      node_criticality: low
+    needs_analyzer:
+      provider: openai
+      model: gpt-4o-mini
+      temperature: 0.3
+      role: "Szükséglet lista összeállítása – azonosított tudáshézagok és tanulási célok"
+      rationale: "GPT-4o-mini: 10× olcsóbb GPT-4o-nál, analitikus listing feladatoknál közel azonos teljesítmény"
+      node_criticality: medium
+    curriculum_designer:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.5
+      role: "Tananyag architektúra – ez a node a teljes kimenet minőségét meghatározza"
+      rationale: "Kritikus node – itt nem spórolunk; a silány struktúra az egész láncot rontja"
+      node_criticality: high
+    content_writer:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.7
+      role: "Tartalom generálás – a végfelhasználó számára látható fő kimenet"
+      rationale: "Kritikus node – közvetlenül hat a felhasználói élményre"
+      node_criticality: high
+    critic:
+      provider: anthropic
+      model: claude-sonnet-4-6
+      temperature: 0.1
+      role: "Minőség-értékelés – strukturált hibafeltárás rubrika alapján"
+      rationale: "Sonnet: megbízható evaluátor a drágább Opus nélkül; critic feladatnál elegendő"
+      node_criticality: medium
+
+evaluation:
+  scoring_weights:
+    quality: 0.40
+    cost: 0.20
+    latency: 0.15
+    robustness: 0.15
+    diversity: 0.10
+  judge_model: claude-opus-4-8
+  judge_provider: anthropic
+  judge_dimensions:
+    - goal_audience_maturity_constraints_alignment
+    - logical_consistency_through_chain
+    - critic_findings_count_and_severity
+    - readability_and_usability
+  automated_metrics:
+    - rouge_l
+    - bert_score
+
+robustness_tests:
+  - edge_case_very_low_maturity_input
+  - large_document_near_token_limit
+  - emotionally_loaded_input
+  sensitivity_analysis: true
+
+cost_tracking:
+  per_node_token_logging: true
+  pricing_source: mixed_apis
+  derived_metric: quality_per_1000_tokens
+  target_cost_reduction_vs_baseline: "50–70%"
+
+expected_outcome: >
+  Legjobb Cost dimenzió az összes kísérlet közül. Quality kb. 5–15%-kal maradhat
+  el a baseline mögött. Ha a minőségesés <10%, ez a konfigurció üzleti szempontból
+  a legjobb ROI-t nyújtja.
+
+tags:
+  - cost_optimized
+  - mixed_providers
+  - node_criticality
+  - production_candidate

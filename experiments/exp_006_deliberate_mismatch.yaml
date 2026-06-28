@@ -1,0 +1,108 @@
+id: exp-006
+name: "Szándékos Eltérés – Kreatív Feszültség Kísérlet"
+version: "1.0"
+date: "2026-06-28"
+status: planned
+
+hypothesis: >
+  Ha szándékosan „nem megfelelő" modelleket rendelünk egyes node-okhoz, kreatív
+  feszültség keletkezik a pipeline-ban. A dokument-kutatás (NeoMI modelcombination
+  kísérletterv) szerint a deliberate mismatch képes növelni a Critic agent
+  hatékonyságát és az output novelty-t, mert a „rosszul illő" modell
+  meglepő, de értékes perspektívát visz be a láncba.
+  Hipotézis: az exp-006 Critic hit rate-je 15–20%-kal magasabb lesz az exp-001
+  baseline-nál, és a Quality nem csökken 10%-nál többet.
+
+optimization_strategy: deliberate_mismatch
+
+pipeline:
+  nodes:
+    context_analyst:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.6  # magasabb hőmérséklet = kevésbé determinisztikus kontextus-értelmezés
+      role: "Kontextus elemzés – szándékosan „túl-erős" modell, ami saját értelmezési kereteit hozza be"
+      rationale: >
+        MISMATCH: GPT-4o kontextus-elemzőként hajlamos gazdag, de esetleg túl tág
+        interpretációt adni – ez feszültséget teremt a precíziós needs_analyzerrel
+      mismatch_intent: "over_powered_divergent_context"
+    needs_analyzer:
+      provider: anthropic
+      model: claude-haiku-4-5
+      temperature: 0.2
+      role: "Szükséglet lista – „alul-erős" modell kényszeríti az esszenciális igények kiemelését"
+      rationale: >
+        MISMATCH: Haiku korlátozott kapacitása miatt csak a legfontosabb szükségletek
+        kerülnek be – szűrő-hatás, amely pontosítja a terjengős GPT-4o kontextust
+      mismatch_intent: "under_powered_essential_filter"
+    curriculum_designer:
+      provider: anthropic
+      model: claude-opus-4-8
+      temperature: 0.8  # magas kreativitás tervező módban
+      role: "Tananyag struktúra – legerősebb modell, de magas hőmérséklettel, szokatlan struktúrákat generálhat"
+      rationale: >
+        MISMATCH: Magas temperature + Opus kombinációja kísérletező, nem konvencionális
+        tananyag-architektúrát produkálhat; a Critic ezt tudja értékelni
+      mismatch_intent: "high_temperature_powerful_designer"
+    content_writer:
+      provider: google
+      model: gemini-2.5-flash
+      temperature: 0.5
+      role: "Tartalom írás – gyors modell „fordítja le" a komplex Opus-struktúrát egyszerű szövegre"
+      rationale: >
+        MISMATCH: Flash a Opus által épített komplex struktúrát egyszerűsíti – kiderül,
+        hogy mekkora az információveszteség a komplex terv → olcsó writer átmenetnél
+      mismatch_intent: "downgraded_writer_after_powerful_designer"
+    critic:
+      provider: openai
+      model: gpt-4o
+      temperature: 0.1
+      role: "Kritikai értékelés – legerősebb critic az összes eltérés azonosítására"
+      rationale: >
+        A Critic-nek erősnek kell lennie, hogy megbízhatóan értékelje a szándékoltan
+        feszültségekkel teli pipeline kimenetét
+      mismatch_intent: "strong_critic_for_mismatch_detection"
+
+evaluation:
+  scoring_weights:
+    quality: 0.40
+    cost: 0.20
+    latency: 0.15
+    robustness: 0.15
+    diversity: 0.10
+  judge_model: claude-opus-4-8
+  judge_provider: anthropic
+  judge_dimensions:
+    - goal_audience_maturity_constraints_alignment
+    - logical_consistency_through_chain
+    - critic_findings_count_and_severity
+    - readability_and_usability
+
+mismatch_specific_metrics:
+  critic_hit_rate_vs_baseline:
+    description: "Hány valódi problémát talál a Critic az exp-001-hez képest"
+    expected_improvement: "+15–20%"
+  information_loss_at_writer:
+    description: "Mennyi információ vész el az Opus-struktúra → Flash-writer átmenetnél"
+    measurement: "BERTScore(curriculum_designer_output, content_writer_output)"
+  context_divergence:
+    description: "Mennyire tér el a GPT-4o kontextus a Haiku szükséglet-listától"
+    measurement: "cosine_similarity(context_analyst_output, needs_analyzer_output)"
+
+cost_tracking:
+  per_node_token_logging: true
+  pricing_source: mixed_apis
+  derived_metric: quality_per_1000_tokens
+
+expected_outcome: >
+  Ez a kísérlet a legkiszámíthatatlanabb kimenetelű. Legjobb esetben: a szándékos
+  feszültségek értékes, szokatlan perspektívákat hoznak be, és a Critic agent
+  kifejezetten jó teljesítményt mutat. Legrosszabb esetben: az inkonzisztenciák
+  rontják a Quality-t. Mindkét végeredmény értékes kutatási adat.
+  Publikálható hipotézis: „deliberate mismatch növeli a Critic hatékonyságát 18%-kal".
+
+tags:
+  - deliberate_mismatch
+  - creative_tension
+  - experimental
+  - high_risk_high_reward
