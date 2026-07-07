@@ -50,23 +50,28 @@ def _estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
 
 
+# Ezek a modellek elutasítják az explicit `temperature` paramétert (400-as hibát adnak)
+_NO_TEMPERATURE_MODELS = {"claude-opus-4-8"}
+
+
 def _get_llm(provider: str, model: str, temperature: float):
+    temp_kwargs = {} if model in _NO_TEMPERATURE_MODELS else {"temperature": temperature}
     if provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
         return ChatGoogleGenerativeAI(
-            model=model, temperature=temperature,
+            model=model, **temp_kwargs,
             google_api_key=os.getenv("GOOGLE_API_KEY")
         )
     elif provider == "openai":
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(
-            model=model, temperature=temperature,
+            model=model, **temp_kwargs,
             api_key=os.getenv("OPENAI_API_KEY")
         )
     elif provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(
-            model=model, temperature=temperature,
+            model=model, **temp_kwargs,
             api_key=os.getenv("ANTHROPIC_API_KEY")
         )
     raise ValueError(f"Ismeretlen provider: {provider}")

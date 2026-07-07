@@ -17,23 +17,28 @@ _COST_REFERENCE_USD    = 0.15   # tipikus run cost, frissül a logok alapján
 _LATENCY_REFERENCE_SEC = 60.0   # tipikus latencia
 
 
+# Ezek a modellek elutasítják az explicit `temperature` paramétert (400-as hibát adnak)
+_NO_TEMPERATURE_MODELS = {"claude-opus-4-8"}
+
+
 def _get_judge_llm(provider: str = "anthropic", model: str = "claude-opus-4-8"):
+    temp_kwargs = {} if model in _NO_TEMPERATURE_MODELS else {"temperature": 0.1}
     if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(
-            model=model, temperature=0.1,
+            model=model, **temp_kwargs,
             api_key=os.getenv("ANTHROPIC_API_KEY")
         )
     elif provider == "openai":
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(
-            model=model, temperature=0.1,
+            model=model, **temp_kwargs,
             api_key=os.getenv("OPENAI_API_KEY")
         )
     elif provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
         return ChatGoogleGenerativeAI(
-            model=model, temperature=0.1,
+            model=model, **temp_kwargs,
             google_api_key=os.getenv("GOOGLE_API_KEY")
         )
     raise ValueError(f"Ismeretlen provider: {provider}")
