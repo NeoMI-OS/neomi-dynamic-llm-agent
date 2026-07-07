@@ -84,9 +84,13 @@ async def list_models():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
-        result = run_agent(
-            query=request.query,
-            conversation_history=request.conversation_history
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: run_agent(
+                query=request.query,
+                conversation_history=request.conversation_history
+            ),
         )
 
         return ChatResponse(
@@ -154,11 +158,15 @@ async def list_experiments():
 async def run_pipeline_experiment(request: PipelineRunRequest):
     """Futtat egyetlen kísérletet és visszaadja az eredményt (szinkron)."""
     try:
-        record = run_experiment(
-            experiment_id=request.experiment_id,
-            input_document=request.input_document,
-            purpose=request.purpose,
-            auto_evaluate=request.auto_evaluate,
+        loop = asyncio.get_event_loop()
+        record = await loop.run_in_executor(
+            None,
+            lambda: run_experiment(
+                experiment_id=request.experiment_id,
+                input_document=request.input_document,
+                purpose=request.purpose,
+                auto_evaluate=request.auto_evaluate,
+            ),
         )
         return {
             "run_id":          record["run_id"],
@@ -399,10 +407,14 @@ async def meta_analyze(request: MetaAnalysisRequest):
     Futtatja a Meta-Agentet: elemzi a logokat és új kísérleteket generál.
     """
     try:
-        result = run_meta_analysis(
-            provider=request.provider,
-            model=request.model,
-            save_proposals=True,
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: run_meta_analysis(
+                provider=request.provider,
+                model=request.model,
+                save_proposals=True,
+            ),
         )
         return result
     except Exception as e:
