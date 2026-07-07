@@ -33,7 +33,6 @@ jobs:
           gcloud builds submit \
             --config=cloudbuild.yaml \
             --substitutions=_BRANCH_NAME=$BRANCH \
-            --no-source \
             --project=${{ secrets.GCP_PROJECT_ID }} \
             --region=europe-west1 \
             .
