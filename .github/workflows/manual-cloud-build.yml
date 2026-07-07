@@ -32,7 +32,7 @@ jobs:
           echo "Cloud Build indítása a(z) '$BRANCH' branch-ről..."
           gcloud builds submit \
             --config=cloudbuild.yaml \
-            --substitutions=_BRANCH_NAME=$BRANCH \
+            --substitutions=_GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }},_OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }},_ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},_ARTIFICIAL_ANALYSIS_API_KEY=${{ secrets.ARTIFICIAL_ANALYSIS_API_KEY }} \
             --project=${{ secrets.GCP_PROJECT_ID }} \
             --region=europe-west1 \
             .
