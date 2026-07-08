@@ -2,12 +2,24 @@
 Structured JSONL logger kísérlet futásokhoz.
 Minden run egy sor a JSONL fájlban.
 Külön összefoglaló CSV is generálódik az összehasonlításhoz.
+
+Cloud Run-on a helyi lemez felejtő (ephemeral) — egy instance-váltás
+(skálázás, idle-timeout, nagyon hosszú kérés) törli a helyi fájlokat.
+Ha a NEOMI_LOGS_GCS_BUCKET env-változó be van állítva, a logger minden
+írás után feltölti a fájlokat egy GCS bucketbe, és minden __init__-nél
+letölti onnan a legfrissebb állapotot — így a naplók túlélik az
+instance-váltásokat, bármelyik instance szolgálja is ki a kérést.
+Ha nincs beállítva (helyi fejlesztés), a viselkedés változatlan, tisztán
+helyi fájlalapú.
 """
 import json
 import csv
 import os
 from pathlib import Path
 from datetime import datetime, timezone
+
+GCS_BUCKET = os.getenv("NEOMI_LOGS_GCS_BUCKET")
+GCS_PREFIX = os.getenv("NEOMI_LOGS_GCS_PREFIX", "experiment_logs")
 
 
 class ExperimentLogger:
@@ -17,11 +29,45 @@ class ExperimentLogger:
         self.jsonl_path = self.logs_dir / "experiment_runs.jsonl"
         self.csv_path   = self.logs_dir / "experiment_summary.csv"
         self.aggregate_csv_path = self.logs_dir / "experiment_robustness_aggregate.csv"
+        if GCS_BUCKET:
+            for p in (self.jsonl_path, self.csv_path, self.aggregate_csv_path):
+                self._gcs_sync_down(p)
+
+    def _gcs_blob_name(self, local_path: Path) -> str:
+        return f"{GCS_PREFIX}/{local_path.name}"
+
+    def _gcs_sync_down(self, local_path: Path) -> None:
+        """Letölti a legfrissebb állapotot GCS-ből, mielőtt bármit olvasnánk/írnánk —
+        így egy másik instance-on történt korábbi írás is látszik."""
+        if not GCS_BUCKET:
+            return
+        try:
+            from google.cloud import storage
+            bucket = storage.Client().bucket(GCS_BUCKET)
+            blob = bucket.blob(self._gcs_blob_name(local_path))
+            if blob.exists():
+                blob.download_to_filename(str(local_path))
+        except Exception as e:
+            print(f"[ExperimentLogger] GCS sync-down figyelmeztetés ({local_path.name}): {e}")
+
+    def _gcs_sync_up(self, local_path: Path) -> None:
+        """Feltölti a helyi fájlt GCS-be írás után, hogy más instance-ok is lássák."""
+        if not GCS_BUCKET or not local_path.exists():
+            return
+        try:
+            from google.cloud import storage
+            bucket = storage.Client().bucket(GCS_BUCKET)
+            blob = bucket.blob(self._gcs_blob_name(local_path))
+            blob.upload_from_filename(str(local_path))
+        except Exception as e:
+            print(f"[ExperimentLogger] GCS sync-up figyelmeztetés ({local_path.name}): {e}")
 
     def log(self, run_record: dict) -> None:
         """Hozzáfűz egy run-rekordot a JSONL loghoz és frissíti a CSV-t."""
+        self._gcs_sync_down(self.jsonl_path)
         with open(self.jsonl_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(run_record, ensure_ascii=False) + "\n")
+        self._gcs_sync_up(self.jsonl_path)
         self._update_csv(run_record)
 
     def _update_csv(self, record: dict) -> None:
@@ -57,6 +103,7 @@ class ExperimentLogger:
             if write_header:
                 writer.writeheader()
             writer.writerow(row)
+        self._gcs_sync_up(self.csv_path)
 
     def log_diversity_patch(self, run_id: str, diversity_score: float) -> None:
         """Appendál egy diverzitás-patch rekordot a JSONL-be. A diverzitás csak
@@ -64,24 +111,29 @@ class ExperimentLogger:
         összevetéséből számolható, ezért ez mindig egy utólagos patch, nem a
         run eredeti log()-jának a része. Append-only — nem írja felül helyben
         a már meglévő JSONL sort."""
+        self._gcs_sync_down(self.jsonl_path)
         patch = {"patch_type": "diversity", "run_id": run_id, "diversity_score": diversity_score}
         with open(self.jsonl_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(patch, ensure_ascii=False) + "\n")
+        self._gcs_sync_up(self.jsonl_path)
 
     def log_aggregate(self, aggregate_record: dict) -> None:
         """Egy robustness-aggregátum sort ír a külön experiment_robustness_aggregate.csv-be
         (egy sor / experiment_id / batch — nem kell az alap run-CSV sémáját bővíteni vele)."""
+        self._gcs_sync_down(self.aggregate_csv_path)
         write_header = not self.aggregate_csv_path.exists()
         with open(self.aggregate_csv_path, "a", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=list(aggregate_record.keys()))
             if write_header:
                 writer.writeheader()
             writer.writerow(aggregate_record)
+        self._gcs_sync_up(self.aggregate_csv_path)
 
     def load_all_runs(self) -> list[dict]:
         """Visszaadja az összes eddigi run-rekordot, a diverzitás-patch-eket
         ráillesztve a megfelelő run_id-jú rekordokra, és a composite_score-t
         újraszámolva a valós diverzitással (a placeholder 0.5 helyett)."""
+        self._gcs_sync_down(self.jsonl_path)
         if not self.jsonl_path.exists():
             return []
 
