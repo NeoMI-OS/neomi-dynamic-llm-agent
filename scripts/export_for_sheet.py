@@ -87,10 +87,12 @@ def main():
     parser.add_argument("--api-base", help="Deployolt API base URL — ha megadva, onnan olvas (nem helyi fájlból)")
     parser.add_argument("--logs-dir", default="experiment_logs", help="Helyi experiment_logs/ mappa (ha nincs --api-base)")
     parser.add_argument("--out-dir", default="exports", help="Kimeneti mappa a TSV fájloknak")
+    parser.add_argument("--exclude-input-ids", default="", help="Vesszővel elválasztott input_id lista, amit ki kell zárni (pl. teszt-futások)")
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    exclude_ids = {x.strip() for x in args.exclude_input_ids.split(",") if x.strip()}
 
     if args.api_base:
         api_base = args.api_base.rstrip("/")
@@ -100,6 +102,18 @@ def main():
         logs_dir = Path(args.logs_dir)
         run_rows = read_local_csv(logs_dir / "experiment_summary.csv")
         agg_rows = read_local_csv(logs_dir / "experiment_robustness_aggregate.csv")
+
+    if exclude_ids:
+        run_rows = [r for r in run_rows if r.get("input_id") not in exclude_ids]
+
+    # A robustness-aggregátum CSV append-only (minden postprocess-hívás új sort ír) —
+    # ha ugyanazt a batch-et véletlenül kétszer postprocesszáljuk (pl. egy kliens-oldali
+    # timeout miatti retry), duplikált sorok keletkeznek. Csak az utolsó (legfrissebb)
+    # sort tartjuk meg experiment_id-nként.
+    dedup_agg = {}
+    for row in agg_rows:
+        dedup_agg[row.get("experiment_id")] = row
+    agg_rows = list(dedup_agg.values())
 
     for row in run_rows:
         for col in HUMAN_RATING_COLUMNS:
