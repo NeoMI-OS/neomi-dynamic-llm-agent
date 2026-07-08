@@ -1,0 +1,82 @@
+input_id: input-06-finance-beginner-long
+metadata:
+  domain: pénzügy
+  maturity: kezdő
+  size: hosszú
+
+purpose: "Átfogó, alapoktól induló AI-tananyag egy hagyományos takarékszövetkezet teljes középvezetői rétegének"
+
+input_document: |
+  A Vidékfejlesztési Takarékszövetkezet egy 450 fős, 40 fiókkal rendelkező,
+  hagyományos pénzügyi intézmény, amely elsősorban lakossági ügyfeleket és
+  kisvállalkozásokat szolgál ki kisebb vidéki településeken. A szövetkezet
+  több mint 60 éve működik, és a szervezeti kultúrája erősen konzervatív,
+  óvatos, kockázatkerülő.
+
+  A középvezetői réteg — fiókvezetők, hitelezési csoportvezetők, ügyfélszolgálati
+  vezetők, kockázatelemzési csoportvezető, informatikai üzemeltetési vezető —
+  jellemzően 15-30 éves szakmai tapasztalattal rendelkezik a hagyományos banki
+  folyamatokban, de szinte semmilyen közvetlen tapasztalattal a modern
+  digitális/AI-technológiákkal. Néhányan még mindig papíralapú
+  jóváhagyási folyamatokat preferálnak, és a digitalizációt korábban is
+  lassan, óvatosan vezették be (pl. az internetbank csak 8 éve indult el,
+  a mobilbank csak 3 éve).
+
+  A szövetkezet vezetése (ügyvezető igazgatóság) az elmúlt évben egyre
+  nagyobb nyomást érez a nagyobb kereskedelmi bankok és a fintech szereplők
+  felől, amelyek AI-alapú hitelbírálati rendszereket, chatbotos
+  ügyfélszolgálatot és automatizált csalásfelismerést vezettek be. A
+  vezetőség attól tart, hogy lemaradnak, de ugyanakkor mélyen tisztában
+  vannak azzal, hogy a középvezetői réteg jelentős ellenállást fog
+  tanúsítani bármilyen radikális változással szemben, ha az nincs
+  alaposan, türelmesen, félelem nélkül elmagyarázva.
+
+  A tananyag célja, hogy a teljes középvezetői réteget — a legkevésbé digitális
+  affinitású fiókvezetőtől az informatikai vezetőig — egységesen, közös
+  alapfogalmi szinten hozza fel, mielőtt bármilyen konkrét AI-projektbe
+  belekezdenének. Az alábbi konkrét témaköröket és aggodalmakat kell
+  lefednie, nagyon egyszerű, zsargonmentes nyelvezettel:
+
+  1. Mi a különbség a "hagyományos szoftver/szabályalapú automatizálás" és a
+     "mesterséges intelligencia" között? Miért nem ugyanaz, mint egy Excel-
+     makró vagy egy egyszerű internetbank-funkció?
+  2. Mi az a "nagy nyelvi modell" (LLM), és hogyan különbözik egy hagyományos
+     chatbottól, amit esetleg már ismernek ügyfélszolgálati kontextusból?
+  3. Konkrétan milyen feladatokat tudna megkönnyíteni az AI a mindennapi banki
+     munkában — anélkül, hogy bármilyen kritikus döntést (hitelbírálat,
+     kockázatvállalás) automatikusan az AI hozná meg? Például: ügyfél-email
+     válaszok fogalmazása, belső dokumentumok összefoglalása, gyakori
+     ügyfélkérdések gyors megválaszolása.
+  4. Miért fontos, hogy a hitelbírálati és kockázatvállalási döntéseket
+     TOVÁBBRA IS ember hozza meg, és az AI csak támogató, előkészítő szerepet
+     kapjon — mind etikai, mind jogi (fogyasztóvédelmi, hitelezési
+     szabályozás) szempontból?
+  5. Milyen konkrét veszélyekre kell figyelni: adatvédelem (ügyféladatok
+     véletlen kiszivárgása egy nem megfelelően kezelt AI-eszközön keresztül),
+     "hallucináció" (az AI magabiztosan hibás információt ad), és a
+     túlzott bizalom veszélye ("ha az AI mondta, biztos igaz").
+  6. Hogyan kommunikálják a fiókvezetők az ügyfelek felé, ha egy adott
+     folyamatban AI-t is alkalmaznak (pl. egy chatbot előszűri az
+     ügyfélkérdéseket) — mennyire kell ezt átláthatóvá tenni, és hogyan
+     kezelhető az ügyfelek esetleges bizalmatlansága?
+  7. Milyen realisztikus időtávon és milyen lépésekben érdemes egy ilyen
+     konzervatív, kockázatkerülő szervezetnek elkezdeni az AI bevezetését —
+     miért NEM javasolt egyszerre mindent bevezetni, és milyen egy
+     "biztonságos", alacsony kockázatú első lépés (pl. csak belső
+     dokumentum-összefoglalásra használni, ügyféladat nélkül)?
+  8. Milyen szerepe lehet a saját munkatársaknak (nem informatikusoknak) az
+     AI-bevezetés alakításában — hogyan adhatnak visszajelzést, ha egy
+     AI-eszköz rosszul működik vagy félrevezető választ ad?
+  9. Mi a különbség egy nyilvánosan elérhető, ingyenes AI-chatbot (amit
+     esetleg valaki otthonról már használt) és egy vállalati, szabályozott,
+     biztonságos AI-megoldás között — miért nem szabad ügyféladatokat
+     beírni egy nyilvános chatbotba?
+  10. Milyen egyszerű, konkrét "vörös zászlók" jelezhetik a középvezetőknek,
+      hogy egy AI-alapú javaslat vagy kimenet gyanús, és mikor kell mindig
+      emberi felülvizsgálatot kérni?
+
+  A tananyagnak nagyon türelmesnek, fokozatosnak és megnyugtatónak kell
+  lennie — a cél nem a lelkesítés, hanem a félelem oldása, a reális
+  elvárások kialakítása, és egy közös, alapfogalmi nyelvezet megteremtése
+  a teljes középvezetői rétegben, hogy a következő lépésben (konkrét
+  pilot-projekt kiválasztása) már egy hullámhosszon tudjanak dönteni.

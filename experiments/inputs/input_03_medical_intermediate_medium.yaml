@@ -1,0 +1,35 @@
+input_id: input-03-medical-intermediate-medium
+metadata:
+  domain: orvostudomány
+  maturity: haladó
+  size: közepes
+
+purpose: "AI a klinikai döntéstámogatásban — gyakorlati tananyag osztályvezető főorvosoknak"
+
+input_document: |
+  A Szent Lukács Egyetemi Klinikai Központ egy 900 ágyas, több szakterületet
+  felölelő egyetemi kórház. A vezetőség (osztályvezető főorvosok, ápolási
+  igazgató, minőségbiztosítási vezető) már használ néhány digitális eszközt
+  (elektronikus betegdokumentáció, alapszintű döntéstámogató riasztások), és
+  van bizonyos háttértudásuk az AI-ról az orvosszakmai konferenciákról, de
+  gyakorlati tapasztalatuk nincs modern generatív AI-eszközökkel.
+
+  A kórház vezetése az elmúlt fél évben több pilot-projektet is fontolgat:
+  radiológiai képelemzés AI-asszisztenciával, ápolói műszakütemezés
+  optimalizálása, és egy AI-alapú előzetes triázs-asszisztens a sürgősségi
+  osztályon. Ugyanakkor komoly aggályaik vannak:
+
+  - Felelősségi kérdések: ki felel, ha egy AI-javaslat alapján hozott orvosi
+    döntés hibásnak bizonyul?
+  - Betegadat-védelem és GDPR/egészségügyi adatvédelmi megfelelés
+  - Az orvosi személyzet bizalmatlansága: "fekete doboz" döntések elutasítása
+  - Hogyan validálható klinikailag egy AI-eszköz, mielőtt éles betegellátásban
+    bevetik?
+  - Milyen képzés szükséges ahhoz, hogy az orvosok kritikusan, ne vakon
+    fogadják el az AI-javaslatokat?
+
+  A cél egy gyakorlatorientált tananyag az osztályvezető főorvosoknak és az
+  ápolási vezetésnek, amely bemutatja a döntéstámogató AI-rendszerek reális
+  lehetőségeit és korlátait, konkrét klinikai validációs szempontokat ad, és
+  segít kialakítani egy felelős, fokozatos bevezetési stratégiát a három
+  tervezett pilot-projekthez.

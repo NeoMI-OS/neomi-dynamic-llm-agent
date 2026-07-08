@@ -1,0 +1,36 @@
+input_id: input-05-finance-expert-medium
+metadata:
+  domain: pénzügy
+  maturity: szakértő
+  size: közepes
+
+purpose: "AI a kockázatkezelésben és portfólió-optimalizálásban — szakértői tananyag befektetési vezetőknek"
+
+input_document: |
+  A Meridian Vagyonkezelő Zrt. egy 300 fős, intézményi és magánügyfeleket
+  kiszolgáló vagyonkezelő cég, amely kb. 2 milliárd eurónyi eszközt kezel.
+  A célközönség a portfóliómenedzserek, kockázatkezelési vezetők és a
+  kvantitatív elemző csapat — mindannyian mély pénzügyi és statisztikai
+  háttérrel, akik napi szinten dolgoznak algoritmikus kereskedési modellekkel
+  és klasszikus kvantitatív módszerekkel (faktor-modellek, Monte Carlo
+  szimuláció, VaR-számítás).
+
+  A cég vezetése azt szeretné megérteni, hol jelent valódi hozzáadott értéket
+  a modern generatív AI és a nagy nyelvi modellek a meglévő kvantitatív
+  eszköztár mellett — nem helyettesítőként, hanem kiegészítőként. Konkrét
+  területek, amikre választ várnak: hírfolyam- és szentiment-elemzés
+  automatizálása valós időben, szabályozói dokumentumok és jelentések gyors
+  feldolgozása, ügyfélkommunikáció személyre szabása, valamint annak
+  megértése, hogy az AI-alapú előrejelzések mennyire megbízhatók (vagy
+  megbízhatatlanok) volatilis piaci körülmények között.
+
+  Fontos szempont: a célközönség eleve szkeptikus a "fekete doboz" jellegű
+  megoldásokkal szemben, és megköveteli, hogy minden AI-alapú javaslat
+  visszavezethető, magyarázható és backtesztelhető legyen — ez különösen
+  releváns a szabályozói megfelelés (MiFID II, saját belső kockázatkezelési
+  irányelvek) miatt.
+
+  A cél egy szakértői szintű tananyag, amely nem magyaráz alapfogalmakat,
+  hanem konkrét, kvantitatívan megalapozott keretrendszert ad az AI-eszközök
+  kritikus értékeléséhez és felelős integrálásához a meglévő kockázatkezelési
+  folyamatokba.

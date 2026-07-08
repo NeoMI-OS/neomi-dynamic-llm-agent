@@ -1,0 +1,71 @@
+input_id: input-09-law-intermediate-long
+metadata:
+  domain: jog
+  maturity: haladó
+  size: hosszú
+
+purpose: "AI-eszközök felelős használata jogi munkában — átfogó tananyag ügyvédi iroda csoportvezetőinek"
+
+input_document: |
+  A Kovács, Németh és Társai Ügyvédi Iroda egy 85 fős, elsősorban vállalati
+  jogi, szerződéses és peres képviseleti tevékenységet folytató iroda
+  Budapesten. Az iroda hat gyakorlati csoportra tagolódik: Vállalati Jog és
+  M&A, Munkajog, Adójog, Peres Képviselet, Ingatlanjog, valamint egy önálló
+  Compliance és Adatvédelem csoport.
+
+  A csoportvezetők (ügyvédek, akik egyben csapatokat is irányítanak) már
+  hallottak és némileg kísérleteztek generatív AI-eszközökkel — néhányan
+  kipróbáltak nyilvánosan elérhető chatbotokat szerződés-tervezetek gyors
+  átnézésére vagy jogi kutatás gyorsítására —, de az iroda vezetése (partneri
+  kör) még nem alakított ki egységes, formális irányelvet az AI-eszközök
+  használatára. Ez komoly kockázatot jelent, mivel több munkatárs
+  már informálisan, ellenőrizetlenül használ ilyen eszközöket.
+
+  A partneri kör az elmúlt hónapokban több konkrét esetet is tapasztalt vagy
+  hallott más irodáktól, amelyek aggodalomra adtak okot:
+
+  1. Egy junior munkatárs egy nyilvános AI-chatbotba másolt be egy ügyfél
+     szerződéstervezetét "gyors átnézésre" — ez potenciálisan sértette az
+     ügyvédi titoktartási kötelezettséget és az ügyféladatok bizalmasságát.
+  2. Egy másik irodánál egy AI-eszköz által generált jogi beadványban
+     nem létező bírósági precedensekre (kitalált ügyszámokra) hivatkoztak,
+     mert a munkatárs nem ellenőrizte az AI kimenetét — ez komoly szakmai
+     és etikai felelősségi kérdést vet fel.
+  3. Felmerült a kérdés, hogy az AI-asszisztált munka hogyan számolható el
+     az óradíjas ügyfélszámlázásban — etikus-e ugyanannyit számlázni egy
+     AI-vel jelentősen felgyorsított feladatért, mint egy tisztán manuális
+     munkáért?
+  4. A Compliance csoport aggódik amiatt, hogy az AI-eszközök használata
+     hogyan egyeztethető össze a GDPR-ral és az ügyvédi titoktartásra
+     vonatkozó szakmai etikai szabályzattal (Ügyvédi Kamara etikai kódexe).
+  5. Több csoportvezető kérdezte, hogy mely feladattípusok NEM alkalmasak
+     AI-asszisztenciára egyáltalán (pl. végső jogi vélemény megfogalmazása,
+     stratégiai perbeli döntések), szemben azokkal, ahol az AI biztonságosan
+     használható (pl. első vázlat készítése rutinszerű, nem bizalmas
+     dokumentumtípusokhoz, belső tudásbázis-keresés).
+  6. Az iroda azt is szeretné megérteni, hogyan befolyásolja az AI a junior
+     ügyvédek szakmai fejlődését — ha egy gyakornok az AI-ra támaszkodva
+     spórolja meg a jogi kutatás és fogalmazás gyakorlását, hogyan
+     biztosítható, hogy mégis megszerezze a szükséges alapkompetenciákat?
+  7. Konkrét kérdés a Vállalati Jog és M&A csoporttól: használható-e AI a
+     due diligence folyamat felgyorsítására (nagy mennyiségű szerződés
+     átvizsgálása kockázatos kikötések után kutatva), és ha igen, milyen
+     minőségbiztosítási lépések szükségesek, hogy egyetlen kritikus kikötés
+     se maradjon észrevétlen?
+  8. A Peres Képviselet csoport azt kérdezi, hogyan viszonyul a bíróság és a
+     szakma az AI-asszisztált beadványokhoz — van-e már kialakult bírói
+     gyakorlat vagy elvárás az AI-használat feltüntetésére/nyilatkozattételére?
+  9. Az Adójog csoport azt szeretné tudni, mennyire megbízható az AI a
+     folyamatosan változó adójogszabályok követésében, és milyen kockázatot
+     jelent, ha egy elavult vagy hallucinált jogszabályi hivatkozásra
+     alapoznak egy ügyféltanácsot.
+  10. A vezetés végül azt kéri, hogy a tananyag tartalmazzon egy konkrét,
+      azonnal bevezethető belső irányelv-vázlatot (AI Usage Policy) is,
+      amit aztán a partneri kör tovább finomíthat és formálisan elfogadhat.
+
+  A cél egy átfogó, gyakorlati tananyag a csoportvezetőknek, amely nem
+  alapfogalmakat magyaráz (a célközönség már ismeri az AI-t felületesen),
+  hanem konkrét, jogi szakmai kontextusra szabott döntési kereteket,
+  kockázatkezelési szempontokat és egy kiinduló belső irányelv-vázlatot ad,
+  hogy az iroda egységes, felelős és etikus AI-használati gyakorlatot tudjon
+  kialakítani az összes gyakorlati csoportban.

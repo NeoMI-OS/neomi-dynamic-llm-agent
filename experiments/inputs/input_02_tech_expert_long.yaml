@@ -1,0 +1,73 @@
+input_id: input-02-tech-expert-long
+metadata:
+  domain: technológia
+  maturity: szakértő
+  size: hosszú
+
+purpose: "Mélyreható AI-stratégiai tananyag szenior szoftverfejlesztési vezetőknek"
+
+input_document: |
+  A Vectra Systems Zrt. egy 1200 fős, budapesti központú szoftverfejlesztő és
+  rendszerintegrátor vállalat, amely nagybankoknak, biztosítóknak és
+  telekommunikációs szolgáltatóknak épít kritikus üzleti rendszereket. A cégnek
+  hat fejlesztési divíziója van: Core Banking Platformok, Valós Idejű
+  Kockázatelemzés, Felhő-infrastruktúra és DevOps, Adatplatform és Analitika,
+  Kiberbiztonság, valamint egy önálló Kutatás-Fejlesztési (R&D) csoport.
+
+  A vállalat vezetése — CTO, VP Engineering, hat divízióvezető, valamint a
+  Platform Architecture Board tagjai — mind mélyen technikai háttérrel
+  rendelkező szakemberek, 10-20 éves szoftverfejlesztési tapasztalattal. Közülük
+  többen már napi szinten használnak AI-alapú kódgenerálló eszközöket (GitHub
+  Copilot, Cursor), de a vállalat vezetése stratégiai szinten még nem alakított
+  ki egységes álláspontot arról, hogyan integrálja az AI-t a teljes szoftver-
+  fejlesztési életciklusba (SDLC) és az üzleti termékfejlesztésbe.
+
+  A háttér: a Vectra Systems az elmúlt két évben jelentős versenynyomást
+  érzékelt olyan konkurens cégektől, amelyek agresszívebben vezettek be
+  AI-asszisztált fejlesztést, automatizált kódellenőrzést és AI-alapú
+  ügyfélszolgálati megoldásokat. A vezetőség aggódik, hogy a Vectra lemarad a
+  fejlesztői produktivitásban, miközben a szabályozott iparágak (bank,
+  biztosítás) miatt extrém óvatosnak kell lenniük az adatvédelem, auditálhatóság
+  és modell-magyarázhatóság terén.
+
+  Konkrét, már felmerült problémák és kérdések a vezetőségtől:
+
+  1. Hogyan lehet biztonságosan bevezetni AI-kódgenerálló eszközöket olyan
+     kódbázisokban, amelyek élő banki tranzakciókat kezelnek, ahol egyetlen
+     hibás commit is milliós kárt okozhat?
+  2. Milyen governance-modell szükséges ahhoz, hogy az AI-generált kód
+     ugyanolyan code review és biztonsági audit alá essen, mint a humán kód,
+     de ne lassítsa le feleslegesen a fejlesztést?
+  3. Van-e értelme saját, fine-tune-olt modellt építeni a belső kódbázisra,
+     vagy elég a kereskedelmi API-alapú megoldásokra támaszkodni? Milyen
+     költség-haszon elemzés indokolná az egyiket vagy a másikat?
+  4. Hogyan mérhető objektíven az AI-eszközök hatása a fejlesztői
+     produktivitásra (DORA-metrikák, cycle time, defect rate), és hogyan
+     kerülhető el, hogy a mérőszámok hamis biztonságérzetet adjanak?
+  5. Milyen AI-alapú megoldások alkalmazhatók a valós idejű kockázatelemzési
+     rendszerekben anélkül, hogy sérülne a modell-magyarázhatósági
+     követelmény (pl. hitelbírálati döntéseknél jogi kötelezettség a
+     indokolhatóságra)?
+  6. Hogyan kezelendő a szellemi tulajdon és licencelési kockázat, ha
+     AI-eszközök nyílt forráskódú kódrészletekhez hasonló kimenetet
+     generálnak?
+  7. Milyen belső képzési és kompetencia-fejlesztési stratégia szükséges
+     ahhoz, hogy a szenior fejlesztők ne csak "használják", hanem kritikusan
+     is tudják értékelni az AI-eszközök kimenetét (pl. hallucinált API-hívások,
+     biztonsági résekkel terhelt minták felismerése)?
+  8. Milyen szerepet játszhat az AI a kiberbiztonsági divízióban — mind
+     támadó (red team, AI-alapú penetrációs tesztelés), mind védekező
+     (anomália-detektálás, automatizált incidenskezelés) oldalon?
+  9. Hogyan illeszkedik mindez az EU AI Act magas kockázatú rendszerekre
+     vonatkozó előírásaihoz, tekintettel arra, hogy a bank- és biztosítási
+     szektorbeli ügyfélrendszerek jó eséllyel e kategóriába esnek?
+  10. Milyen szervezeti struktúra (pl. dedikált AI Platform Team, vagy
+      elosztott "AI champion" modell divíziónként) skálázható jobban egy
+      1200 fős, több divíziós szervezetben?
+
+  A cél egy olyan mélyreható, stratégiai szintű tananyag, amely nem alapfogalmakat
+  magyaráz (ezt a célközönség már ismeri), hanem konkrét döntési keretrendszereket,
+  kockázatkezelési modelleket és architekturális mintákat ad a fenti kérdésekre,
+  saját iparági esettanulmányokkal és mérhető sikerkritériumokkal alátámasztva.
+  A tananyagnak fel kell készítenie a vezetőket arra, hogy a következő negyedéves
+  stratégiai tervezésen megalapozott, konkrét AI-beruházási döntéseket hozzanak.

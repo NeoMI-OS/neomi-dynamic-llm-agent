@@ -20,7 +20,10 @@ load_dotenv()
 
 from agent import run_agent
 from config import MODEL_CONFIG, ModelTier
-from experiment_runner import run_experiment, run_experiment_series, load_all_experiments
+from experiment_runner import (
+    run_experiment, run_experiment_series, run_experiment_series_multi_input,
+    postprocess_logged_runs, load_all_experiments, load_test_inputs,
+)
 from experiment_logger import ExperimentLogger
 from meta_agent import run_meta_analysis
 
@@ -117,13 +120,30 @@ class PipelineRunRequest(BaseModel):
     purpose: str
     experiment_id: str = "exp-001"
     auto_evaluate: bool = True
+    input_id: Optional[str] = None  # multi-input batch-eknél a dokumentum azonosítója
+
+
+class SeriesInput(BaseModel):
+    input_document: str
+    purpose: str
+    input_id: Optional[str] = None
 
 
 class ExperimentSeriesRequest(BaseModel):
-    input_document: str
-    purpose: str
+    # Régi, egy-inputos út (visszafelé kompatibilis)
+    input_document: Optional[str] = None
+    purpose: Optional[str] = None
+    # Új, multi-input út — kettő közül az egyik adható meg:
+    inputs: Optional[list[SeriesInput]] = None            # explicit dokumentumok
+    test_input_ids: Optional[list[str]] = None            # hivatkozás experiments/inputs/*.yaml-ra
     experiment_ids: Optional[list[str]] = None
     auto_evaluate: bool = True
+    cost_cap_usd: Optional[float] = None
+
+
+class PostprocessBatchRequest(BaseModel):
+    input_ids: list[str]
+    experiment_ids: Optional[list[str]] = None
 
 
 class MetaAnalysisRequest(BaseModel):
@@ -166,11 +186,13 @@ async def run_pipeline_experiment(request: PipelineRunRequest):
                 input_document=request.input_document,
                 purpose=request.purpose,
                 auto_evaluate=request.auto_evaluate,
+                input_id=request.input_id,
             ),
         )
         return {
             "run_id":          record["run_id"],
             "experiment_id":   record["experiment_id"],
+            "input_id":        record.get("input_id"),
             "experiment_name": record["experiment_name"],
             "metrics":         record["metrics"],
             "evaluation":      record.get("evaluation"),
@@ -353,7 +375,52 @@ async def run_series(request: ExperimentSeriesRequest, background_tasks: Backgro
     """
     Elindítja a teljes kísérlet-sorozatot háttérben.
     A /pipeline/logs endpointon lehet követni az eredményeket.
+
+    Multi-input mód: add meg `inputs` (explicit dokumentumok) vagy
+    `test_input_ids` (hivatkozás az experiments/inputs/*.yaml szintetikus
+    teszt-dokumentumokra) — ekkor minden experiment_id az összes inputon
+    lefut, a végén valós diverzitás- és robustness-metrikával.
+
+    Régi, egy-inputos mód: add meg `input_document` + `purpose` — ez a
+    korábbi viselkedést tartja meg, visszafelé kompatibilisen.
     """
+    if request.inputs or request.test_input_ids:
+        if request.test_input_ids:
+            loaded = load_test_inputs(request.test_input_ids)
+            inputs = [
+                {"input_id": i["input_id"], "input_document": i["input_document"], "purpose": i["purpose"]}
+                for i in loaded
+            ]
+        else:
+            inputs = [
+                {
+                    "input_id": inp.input_id or f"input-{idx + 1}",
+                    "input_document": inp.input_document,
+                    "purpose": inp.purpose,
+                }
+                for idx, inp in enumerate(request.inputs)
+            ]
+        background_tasks.add_task(
+            run_experiment_series_multi_input,
+            inputs=inputs,
+            experiment_ids=request.experiment_ids,
+            auto_evaluate=request.auto_evaluate,
+            cost_cap_usd=request.cost_cap_usd,
+        )
+        return {
+            "status": "started",
+            "message": (
+                f"Multi-input kísérlet-sorozat fut a háttérben "
+                f"({len(inputs)} input). Kövesd a /pipeline/logs endpointon."
+            ),
+        }
+
+    if not request.input_document or not request.purpose:
+        raise HTTPException(
+            status_code=400,
+            detail="Adj meg input_document+purpose-t (egy-inputos mód), vagy inputs/test_input_ids-t (multi-input mód).",
+        )
+
     background_tasks.add_task(
         run_experiment_series,
         input_document=request.input_document,
@@ -365,6 +432,29 @@ async def run_series(request: ExperimentSeriesRequest, background_tasks: Backgro
         "status": "started",
         "message": "A kísérlet-sorozat fut a háttérben. Kövesd a /pipeline/logs endpointon.",
     }
+
+
+@app.post("/pipeline/postprocess-batch")
+async def postprocess_batch(request: PostprocessBatchRequest):
+    """
+    Lefuttatja a diverzitás- és robustness-post-processinget MÁR LOGOLT
+    futásokra, újrafuttatás nélkül. Akkor hasznos, ha a kísérleteket
+    egyenkénti /pipeline/run hívásokkal futtattad (pl. hosszú batch-nél a
+    Cloud Run CPU-throttling elkerülésére), és utólag kell a batch-szintű
+    elemzést (diverzitás, robustness-variancia) elvégezni.
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: postprocess_logged_runs(
+                input_ids=request.input_ids,
+                experiment_ids=request.experiment_ids,
+            ),
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/pipeline/logs")
@@ -383,10 +473,14 @@ async def get_logs(experiment_id: Optional[str] = None, limit: int = 20):
         {
             "run_id":          r.get("run_id"),
             "experiment_id":   r.get("experiment_id"),
+            "input_id":        r.get("input_id"),
             "experiment_name": r.get("experiment_name"),
+            "strategy":        r.get("optimization_strategy"),
             "started_at":      r.get("started_at"),
             "metrics":         r.get("metrics", {}),
             "composite_score": (r.get("evaluation") or {}).get("composite_score"),
+            "dimension_scores": (r.get("evaluation") or {}).get("dimension_scores"),
+            "critic_issues":   (r.get("evaluation") or {}).get("critic_issues_count"),
             "errors":          len(r.get("errors", [])),
         }
         for r in runs
@@ -399,6 +493,20 @@ async def get_leaderboard():
     logger = ExperimentLogger(LOGS_DIR)
     summary = logger.get_summary_table()
     return sorted(summary, key=lambda x: x.get("best_composite") or 0, reverse=True)
+
+
+@app.get("/pipeline/robustness-aggregate")
+async def get_robustness_aggregate():
+    """Visszaadja az experiment_id-nkénti robustness-aggregátumot (szórás a
+    minőségben/composite score-ban a különböző inputok között, hibaarány) —
+    csak akkor van tartalma, ha multi-input batch már lefutott és
+    postprocess_diversity_and_robustness lefutott rá."""
+    import csv as csv_module
+    logger = ExperimentLogger(LOGS_DIR)
+    if not logger.aggregate_csv_path.exists():
+        return []
+    with open(logger.aggregate_csv_path, encoding="utf-8") as f:
+        return list(csv_module.DictReader(f))
 
 
 @app.post("/pipeline/meta-analyze")

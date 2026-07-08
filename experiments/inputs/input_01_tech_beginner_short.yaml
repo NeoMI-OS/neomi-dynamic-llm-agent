@@ -1,0 +1,22 @@
+input_id: input-01-tech-beginner-short
+metadata:
+  domain: technológia
+  maturity: kezdő
+  size: rövid
+
+purpose: "AI alapok tananyag teljesen kezdő, nem technikai középvezetőknek"
+
+input_document: |
+  A Retex Kft. egy 60 fős kiskereskedelmi lánc háttérirodája Szegeden, amely
+  webáruházat és 8 fizikai boltot üzemeltet. A vezetőség hallott az AI-ról a
+  hírekben, de a cégnél eddig senki nem használt semmilyen AI-eszközt
+  munkavégzésre.
+
+  A középvezetők (boltvezetők, logisztikai koordinátor, ügyfélszolgálat-vezető)
+  teljesen kezdő szinten állnak: nem tudják, mi a különbség a chatbot és egy
+  "igazi" mesterséges intelligencia között, és tartanak attól, hogy az AI
+  kiváltja majd a munkájukat.
+
+  A cél egy nagyon egyszerű, félelmet oldó bevezető tananyag, ami alapfogalmakat
+  tisztáz, konkrét, kis kockázatú felhasználási példákat mutat be (pl. email
+  megfogalmazás, készletoptimalizálás), és nem megy bele technikai részletekbe.

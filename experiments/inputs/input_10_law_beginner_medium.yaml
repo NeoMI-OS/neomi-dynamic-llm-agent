@@ -1,0 +1,33 @@
+input_id: input-10-law-beginner-medium
+metadata:
+  domain: jog
+  maturity: kezdő
+  size: közepes
+
+purpose: "AI alapok kezdő szinten önkormányzati jogi és igazgatási osztályvezetőknek"
+
+input_document: |
+  A Városháza Jogi és Igazgatási Osztálya egy középvárosi önkormányzat
+  belső jogi csapata, 18 fővel: önkormányzati jogászok, ügyintézési
+  osztályvezetők és egy adatvédelmi felelős. A csoport tagjai jellemzően
+  klasszikus közigazgatási és jogi képzettséggel rendelkeznek, digitális
+  eszközökkel kapcsolatos tapasztalatuk az alapszintű irodai szoftverekre
+  (Word, Excel, ügyviteli rendszer) korlátozódik. Senki a csoportban nem
+  használt még AI-eszközt munkavégzésre.
+
+  Az önkormányzat vezetése (jegyző, polgármesteri hivatal vezetése) azt
+  fontolgatja, hogy AI-eszközöket vezessen be egyes rutinszerű, nagy
+  mennyiségű dokumentummal járó feladatokra: lakossági beadványok előzetes
+  kategorizálása, gyakori kérdések megválaszolásának támogatása, belső
+  szabályzatok és jogszabályok gyors összefoglalása. Ugyanakkor a jogi
+  osztály komoly aggodalmakat fogalmazott meg: a közigazgatási eljárásokban
+  szigorú formai és jogorvoslati szabályok vonatkoznak minden döntésre, és
+  a hivatal nem engedheti meg magának, hogy egy AI-hiba jogilag támadható
+  határozatot eredményezzen.
+
+  A cél egy alapoktól induló, nagyon érthető tananyag, ami tisztázza: mire
+  jó ténylegesen az AI egy önkormányzati jogi/igazgatási környezetben, hol
+  húzódik a határ, ahol mindenképp emberi jogász döntése szükséges, és
+  milyen egyszerű, alacsony kockázatú első lépésekkel érdemes elkezdeni a
+  bevezetést (pl. csak belső, nem hatósági jellegű dokumentumok
+  összefoglalására).

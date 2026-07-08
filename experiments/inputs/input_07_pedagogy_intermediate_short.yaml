@@ -1,0 +1,23 @@
+input_id: input-07-pedagogy-intermediate-short
+metadata:
+  domain: pedagógia
+  maturity: haladó
+  size: rövid
+
+purpose: "AI a tanórai differenciálásban — gyakorlati tananyag intézményvezetőknek"
+
+input_document: |
+  A Fénysugár Alapítványi Iskola egy 400 fős, 1-8. évfolyamos általános iskola,
+  ahol a pedagógusok és az intézményvezetés már használ néhány digitális
+  eszközt (tanulói progresszió-követő szoftver, online feladatlapok), és
+  van alap ismeretük az AI-ról, de gyakorlati tapasztalatuk kevés.
+
+  Az intézményvezetés azt szeretné feltárni, hogyan segíthet az AI a tanórai
+  differenciálásban — vagyis abban, hogy eltérő képességű tanulók egyénre
+  szabott feladatokat kapjanak anélkül, hogy ez aránytalanul megnövelné a
+  pedagógusok felkészülési idejét.
+
+  A cél egy tömör, gyakorlatorientált tananyag, ami konkrét, azonnal
+  kipróbálható módszereket mutat be a differenciált feladatkészítésre és
+  ezek etikai/pedagógiai korlátait (pl. tanulói adatvédelem, túlzott
+  automatizálás veszélye a személyes pedagógusi kapcsolatban).

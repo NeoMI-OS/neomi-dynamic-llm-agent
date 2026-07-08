@@ -16,6 +16,7 @@ class ExperimentLogger:
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.jsonl_path = self.logs_dir / "experiment_runs.jsonl"
         self.csv_path   = self.logs_dir / "experiment_summary.csv"
+        self.aggregate_csv_path = self.logs_dir / "experiment_robustness_aggregate.csv"
 
     def log(self, run_record: dict) -> None:
         """Hozzáfűz egy run-rekordot a JSONL loghoz és frissíti a CSV-t."""
@@ -47,6 +48,7 @@ class ExperimentLogger:
             "critic_issues":    evaluation.get("critic_issues_count", ""),
             "errors":           len(record.get("errors", [])),
             "pareto_dominated": evaluation.get("pareto_dominated", ""),
+            "input_id":         record.get("input_id", ""),
         }
 
         write_header = not self.csv_path.exists()
@@ -56,20 +58,75 @@ class ExperimentLogger:
                 writer.writeheader()
             writer.writerow(row)
 
+    def log_diversity_patch(self, run_id: str, diversity_score: float) -> None:
+        """Appendál egy diverzitás-patch rekordot a JSONL-be. A diverzitás csak
+        egy teljes batch lefutása után, több kombináció kimenetének
+        összevetéséből számolható, ezért ez mindig egy utólagos patch, nem a
+        run eredeti log()-jának a része. Append-only — nem írja felül helyben
+        a már meglévő JSONL sort."""
+        patch = {"patch_type": "diversity", "run_id": run_id, "diversity_score": diversity_score}
+        with open(self.jsonl_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(patch, ensure_ascii=False) + "\n")
+
+    def log_aggregate(self, aggregate_record: dict) -> None:
+        """Egy robustness-aggregátum sort ír a külön experiment_robustness_aggregate.csv-be
+        (egy sor / experiment_id / batch — nem kell az alap run-CSV sémáját bővíteni vele)."""
+        write_header = not self.aggregate_csv_path.exists()
+        with open(self.aggregate_csv_path, "a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=list(aggregate_record.keys()))
+            if write_header:
+                writer.writeheader()
+            writer.writerow(aggregate_record)
+
     def load_all_runs(self) -> list[dict]:
-        """Visszaadja az összes eddigi run-rekordot."""
+        """Visszaadja az összes eddigi run-rekordot, a diverzitás-patch-eket
+        ráillesztve a megfelelő run_id-jú rekordokra, és a composite_score-t
+        újraszámolva a valós diverzitással (a placeholder 0.5 helyett)."""
         if not self.jsonl_path.exists():
             return []
-        runs = []
+
+        raw_lines = []
         with open(self.jsonl_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
                     try:
-                        runs.append(json.loads(line))
+                        raw_lines.append(json.loads(line))
                     except json.JSONDecodeError:
                         pass
-        return runs
+
+        runs_by_id: dict[str, dict] = {}
+        patches: list[dict] = []
+        ordered_run_ids: list[str] = []
+        for entry in raw_lines:
+            if entry.get("patch_type") == "diversity":
+                patches.append(entry)
+            else:
+                run_id = entry.get("run_id")
+                runs_by_id[run_id] = entry
+                ordered_run_ids.append(run_id)
+
+        if patches:
+            from experiment_evaluator import recompute_composite_score
+            for patch in patches:
+                run = runs_by_id.get(patch["run_id"])
+                if run is None or not run.get("evaluation"):
+                    continue
+                scores = run["evaluation"].setdefault("dimension_scores", {})
+                scores["diversity"] = round(patch["diversity_score"] * 100, 1)
+                run["evaluation"]["composite_score"] = recompute_composite_score(scores)
+
+        return [runs_by_id[rid] for rid in ordered_run_ids]
+
+    def write_diversity_and_recompute_csv(self) -> None:
+        """A teljes experiment_summary.csv-t újragenerálja a (patch-elt,
+        újraszámolt) load_all_runs() adatból. Egyszeri, idempotens teljes
+        újraírás — csak a batch végén hívandó, nem minden egyes run után."""
+        runs = self.load_all_runs()
+        if self.csv_path.exists():
+            self.csv_path.unlink()
+        for run in runs:
+            self._update_csv(run)
 
     def load_runs_for_experiment(self, experiment_id: str) -> list[dict]:
         return [r for r in self.load_all_runs() if r.get("experiment_id") == experiment_id]

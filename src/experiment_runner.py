@@ -16,10 +16,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from pipeline import run_pipeline
 from experiment_logger import ExperimentLogger
-from experiment_evaluator import evaluate_run
+from experiment_evaluator import evaluate_run, compute_robustness_aggregate
+from diversity_metrics import compute_diversity_for_input
+from cost_guard import (
+    check_cost_cap, CostCapExceeded, sum_global_cost_from_csv,
+    DEFAULT_SERIES_COST_CAP_USD, DEFAULT_GLOBAL_DAILY_COST_CAP_USD,
+)
 
 
 EXPERIMENTS_DIR = Path(__file__).parent.parent / "experiments"
+INPUTS_DIR = EXPERIMENTS_DIR / "inputs"
 LOGS_DIR = Path(__file__).parent.parent / "experiment_logs"
 
 
@@ -60,6 +66,26 @@ def load_all_experiments() -> list[dict]:
     return configs
 
 
+def load_test_inputs(input_ids: list[str] | None = None) -> list[dict]:
+    """Betölti a experiments/inputs/*.yaml teszt-dokumentumokat.
+    input_ids megadása esetén csak a megfelelő input_id-jű fájlokat adja vissza,
+    a megadott sorrendben.
+    """
+    by_id = {}
+    for path in sorted(INPUTS_DIR.glob("*.yaml")):
+        with open(path, encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+            by_id[cfg["input_id"]] = cfg
+
+    if input_ids is None:
+        return list(by_id.values())
+
+    missing = [i for i in input_ids if i not in by_id]
+    if missing:
+        raise FileNotFoundError(f"Nem található input: {missing} (elérhető: {list(by_id.keys())})")
+    return [by_id[i] for i in input_ids]
+
+
 def _extract_node_configs(experiment_cfg: dict) -> dict:
     """Kigyűjti a node konfigurációkat a YAML pipeline.nodes szekciójából."""
     nodes = experiment_cfg.get("pipeline", {}).get("nodes", {})
@@ -84,6 +110,7 @@ def run_experiment(
     purpose: str,
     auto_evaluate: bool = True,
     tags: list[str] | None = None,
+    input_id: str | None = None,
 ) -> dict:
     """
     Egyetlen kísérlet futtatása:
@@ -116,6 +143,7 @@ def run_experiment(
     run_record = {
         "run_id":        run_id,
         "experiment_id": experiment_id,
+        "input_id":      input_id,
         "experiment_name": cfg.get("name", experiment_id),
         "optimization_strategy": cfg.get("optimization_strategy", ""),
         "started_at":    started_at,
@@ -217,6 +245,168 @@ def run_experiment_series(
 
     print(f"{'='*60}\n")
     return results
+
+
+def run_experiment_series_multi_input(
+    inputs: list[dict],
+    experiment_ids: list[str] | None = None,
+    auto_evaluate: bool = True,
+    delay_between_runs: float = 2.0,
+    cost_cap_usd: float | None = None,
+    global_cost_cap_usd: float | None = None,
+) -> dict:
+    """
+    Futtatja a megadott (vagy összes) kísérletet TÖBB input dokumentumon.
+    inputs: [{"input_id": str, "input_document": str, "purpose": str}, ...]
+    (pl. load_test_inputs() kimenete).
+
+    Külső ciklus inputonként, belső ciklus experiment_id-nként — ha a cost-cap
+    közben leáll, teljes lefedettség marad annyi inputra, amennyi belefért
+    (nem féloldalas, ami tönkretenné a robustness-varianciát).
+
+    A batch végén két post-processing lépés fut:
+    - diverzitás számítás inputonként (a 10 kombináció kimenetének
+      összevetése ugyanazon a dokumentumon), patch-elve a logba
+    - robustness-aggregátum experiment_id-nkénti (szórás a minőségben/
+      composite score-ban a különböző inputok között, hibaarány)
+
+    Visszaad: {"runs", "runs_completed", "series_cost_usd", "aborted", "abort_reason"}
+    """
+    if experiment_ids is None:
+        configs = load_all_experiments()
+        experiment_ids = [c["id"] for c in configs if c.get("status", "planned") == "planned"]
+
+    cost_cap_usd = DEFAULT_SERIES_COST_CAP_USD if cost_cap_usd is None else cost_cap_usd
+    global_cost_cap_usd = DEFAULT_GLOBAL_DAILY_COST_CAP_USD if global_cost_cap_usd is None else global_cost_cap_usd
+
+    logger = ExperimentLogger(LOGS_DIR)
+
+    global_cost_so_far = sum_global_cost_from_csv(logger.csv_path)
+    if global_cost_so_far >= global_cost_cap_usd:
+        msg = f"Globális napi cost cap már túllépve: ${global_cost_so_far:.2f} >= ${global_cost_cap_usd:.2f}"
+        print(f"ABORT (batch el sem indul): {msg}")
+        return {"runs": [], "runs_completed": 0, "series_cost_usd": 0.0, "aborted": True, "abort_reason": msg}
+
+    total_runs_planned = len(experiment_ids) * len(inputs)
+    print(f"\n{'='*60}")
+    print(f"MULTI-INPUT KÍSÉRLET SOROZAT INDÍTÁSA")
+    print(f"  {len(experiment_ids)} kísérlet x {len(inputs)} input = {total_runs_planned} futás")
+    print(f"  Series cost cap: ${cost_cap_usd:.2f} | Globális eddig: ${global_cost_so_far:.2f}")
+    print(f"{'='*60}")
+
+    series_cost = 0.0
+    all_runs = []
+    aborted = False
+    abort_reason = None
+
+    for i, inp in enumerate(inputs, 1):
+        if aborted:
+            break
+        print(f"\n--- Input {i}/{len(inputs)}: {inp['input_id']} ---")
+        for j, exp_id in enumerate(experiment_ids, 1):
+            try:
+                check_cost_cap(series_cost, cost_cap_usd, label="series")
+            except CostCapExceeded as e:
+                print(f"  ABORT: {e}")
+                aborted = True
+                abort_reason = str(e)
+                break
+
+            print(f"  [{j}/{len(experiment_ids)}] {exp_id} (input: {inp['input_id']})")
+            try:
+                record = run_experiment(
+                    experiment_id=exp_id,
+                    input_document=inp["input_document"],
+                    purpose=inp["purpose"],
+                    auto_evaluate=auto_evaluate,
+                    input_id=inp["input_id"],
+                )
+                all_runs.append(record)
+                series_cost += record.get("metrics", {}).get("total_cost_usd", 0) or 0
+            except Exception as e:
+                print(f"    HIBA: {e}")
+                all_runs.append({"experiment_id": exp_id, "input_id": inp["input_id"], "error": str(e)})
+
+            if not (i == len(inputs) and j == len(experiment_ids)):
+                time.sleep(delay_between_runs)
+
+    print(f"\n{'='*60}")
+    print(f"BATCH KÉSZ: {len(all_runs)} futtatás, ${series_cost:.4f} költség"
+          + (" (LEÁLLÍTVA cost cap miatt)" if aborted else ""))
+
+    valid_runs = [r for r in all_runs if "metrics" in r and r.get("evaluation")]
+    postprocess_diversity_and_robustness(valid_runs, logger)
+    print(f"{'='*60}\n")
+
+    return {
+        "runs": all_runs,
+        "runs_completed": len(valid_runs),
+        "series_cost_usd": round(series_cost, 6),
+        "aborted": aborted,
+        "abort_reason": abort_reason,
+    }
+
+
+def postprocess_diversity_and_robustness(valid_runs: list[dict], logger: ExperimentLogger) -> None:
+    """
+    Batch utáni post-processing: valós diverzitás-metrika (inputonként, a
+    kombinációk kimeneteinek összevetésével) + robustness-aggregátum
+    (experiment_id-nkénti, a különböző inputok közötti varianciából).
+
+    valid_runs: run_record-ok, amikhez van "metrics" és "evaluation" (a
+    hibás/hiányos futásokat a hívó már kiszűrte).
+    """
+    by_input: dict[str, list] = {}
+    for r in valid_runs:
+        by_input.setdefault(r.get("input_id"), []).append(r)
+
+    diversity_errors = []
+    for input_id, runs_same_input in by_input.items():
+        try:
+            div_result = compute_diversity_for_input(runs_same_input)
+            for exp_id, div_score in div_result.get("per_experiment_diversity", {}).items():
+                run = next((r for r in runs_same_input if r["experiment_id"] == exp_id), None)
+                if run:
+                    logger.log_diversity_patch(run["run_id"], div_score)
+        except Exception as e:
+            diversity_errors.append(f"{input_id}: {e}")
+    if diversity_errors:
+        print(f"  Figyelem: diverzitás-számítás hibázott néhány inputnál: {diversity_errors}")
+
+    valid_run_ids = {r["run_id"] for r in valid_runs}
+    patched_runs = logger.load_all_runs()
+    patched_by_experiment: dict[str, list] = {}
+    for r in patched_runs:
+        if r.get("run_id") in valid_run_ids:
+            patched_by_experiment.setdefault(r["experiment_id"], []).append(r)
+
+    for exp_id, exp_runs in patched_by_experiment.items():
+        aggregate = compute_robustness_aggregate(exp_runs)
+        if aggregate:
+            logger.log_aggregate(aggregate)
+
+    logger.write_diversity_and_recompute_csv()
+
+
+def postprocess_logged_runs(input_ids: list[str], experiment_ids: list[str] | None = None) -> dict:
+    """
+    Lefuttatja a diverzitás + robustness post-processing-et MÁR LOGOLT futásokra,
+    anélkül hogy bármit újrafuttatna. Akkor hasznos, ha a kísérletek futtatása
+    külön (pl. egyenkénti /pipeline/run hívásokkal) történt, és utólag kell a
+    batch-szintű elemzést elvégezni ugyanazon a szerver-instance-on tárolt
+    logokra.
+    """
+    logger = ExperimentLogger(LOGS_DIR)
+    all_runs = logger.load_all_runs()
+    input_id_set = set(input_ids)
+    valid_runs = [
+        r for r in all_runs
+        if r.get("input_id") in input_id_set
+        and r.get("evaluation")
+        and (experiment_ids is None or r.get("experiment_id") in experiment_ids)
+    ]
+    postprocess_diversity_and_robustness(valid_runs, logger)
+    return {"runs_postprocessed": len(valid_runs)}
 
 
 # ── CLI belépési pont ────────────────────────────────────────────────────────

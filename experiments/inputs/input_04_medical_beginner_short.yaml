@@ -1,0 +1,24 @@
+input_id: input-04-medical-beginner-short
+metadata:
+  domain: orvostudomány
+  maturity: kezdő
+  size: rövid
+
+purpose: "AI alapok háziorvosi rendelők adminisztratív vezetőinek"
+
+input_document: |
+  A Familia Egészségközpont egy 12 háziorvosi rendelőt tömörítő hálózat vidéki
+  városokban. A rendelők adminisztratív vezetői (gyakorlatvezetők) semmilyen
+  tapasztalattal nem rendelkeznek AI-eszközökkel, és eddig papíralapú vagy
+  alapszintű Excel-táblázatos folyamatokat használtak az időpontfoglalás és
+  betegkommunikáció kezelésére.
+
+  A hálózat vezetése szeretné, ha a gyakorlatvezetők megértenék, mire is jó
+  ténylegesen az AI a mindennapi adminisztrációban (pl. időpont-emlékeztetők,
+  egyszerű betegkérdések megválaszolása, dokumentum-összefoglalás) — nem orvosi
+  diagnosztikai kontextusban, hanem tisztán operatív, adminisztratív szinten.
+
+  A cél egy nagyon egyszerű, gyakorlatias bevezető tananyag, ami eloszlatja a
+  félreértéseket ("az AI nem fog diagnózist adni helyettünk"), és konkrét,
+  azonnal alkalmazható példákat mutat be az adminisztratív munka
+  megkönnyítésére.

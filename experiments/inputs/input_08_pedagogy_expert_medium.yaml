@@ -1,0 +1,26 @@
+input_id: input-08-pedagogy-expert-medium
+metadata:
+  domain: pedagógia
+  maturity: szakértő
+  size: közepes
+
+purpose: "AI-integrációs stratégia felsőoktatási intézmény oktatásfejlesztési vezetőinek"
+
+input_document: |
+  Az Északi Műszaki és Gazdaságtudományi Egyetem oktatásfejlesztési igazgatósága,
+  kari dékánhelyettesek és a digitális oktatási központ vezetése kéri a
+  tananyagot. A célközönség mélyen tisztában van az oktatáselméleti
+  alapfogalmakkal és már aktívan kísérletezik generatív AI-eszközökkel az
+  oktatásban (pl. AI-generált gyakorló feladatok, esszéértékelés-támogatás),
+  de intézményi szintű, egységes stratégia még nincs.
+
+  Konkrét, már felmerült kihívások: hogyan kezelhető az AI-alapú plágium és a
+  hallgatói integritás kérdése úgy, hogy közben ne váljon a rendszer
+  túlzottan büntető jellegűvé; hogyan integrálható az AI a vizsgáztatásba és
+  értékelésbe a validitás megőrzése mellett; milyen képzésre van szüksége az
+  oktatói karnak ahhoz, hogy kritikusan, pedagógiailag megalapozottan
+  használják az AI-eszközöket, ne csak adminisztratív tehermentesítésre.
+
+  A cél egy szakértői szintű, intézményi stratégiai tananyag, ami konkrét
+  döntési kereteket ad ezekre a kérdésekre, figyelembe véve a felsőoktatási
+  akkreditációs és minőségbiztosítási követelményeket is.

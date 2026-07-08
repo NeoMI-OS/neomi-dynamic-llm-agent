@@ -8,8 +8,22 @@ import os
 import sys
 import json
 import re
+import statistics
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+# evaluation_framework.yaml composite_score.formula súlyai
+_DEFAULT_WEIGHTS = {"quality": 0.40, "cost": 0.20, "latency": 0.15, "robustness": 0.15, "diversity": 0.10}
+
+
+def recompute_composite_score(dimension_scores: dict, weights: dict | None = None) -> float:
+    """Újraszámolja a composite score-t a dimension_scores (0-100 skálán) alapján,
+    ugyanazzal a képlettel mint evaluate_run(). Akkor kell, ha egy dimenzió
+    (jellemzően diversity) utólag frissül a valós értékkel a placeholder helyett."""
+    w = weights or _DEFAULT_WEIGHTS
+    composite = sum(w[dim] * (dimension_scores.get(dim, 0) or 0) / 100.0 for dim in w)
+    return round(composite * 100, 1)
 
 
 # Referencia értékek a normalizáláshoz (az összes kísérlet átlagából frissítendő)
@@ -172,26 +186,19 @@ def evaluate_run(run_record: dict, judge_cfg: dict | None = None) -> dict:
     diversity = 0.5
 
     # Composite Score (evaluation_framework.yaml képlete)
-    w = {"quality": 0.40, "cost": 0.20, "latency": 0.15, "robustness": 0.15, "diversity": 0.10}
-    composite = (
-        w["quality"]    * quality_norm  +
-        w["cost"]       * cost_score    +
-        w["latency"]    * latency_score +
-        w["robustness"] * robustness    +
-        w["diversity"]  * diversity
-    )
-    composite_pct = round(composite * 100, 1)
+    dimension_scores = {
+        "quality":    round(quality_norm * 100, 1),
+        "cost":       round(cost_score * 100, 1),
+        "latency":    round(latency_score * 100, 1),
+        "robustness": round(robustness * 100, 1),
+        "diversity":  round(diversity * 100, 1),
+    }
+    composite_pct = recompute_composite_score(dimension_scores)
 
     return {
         "judge_model":       f"{judge_provider}/{judge_model}",
         "composite_score":   composite_pct,
-        "dimension_scores": {
-            "quality":    round(quality_norm * 100, 1),
-            "cost":       round(cost_score * 100, 1),
-            "latency":    round(latency_score * 100, 1),
-            "robustness": round(robustness * 100, 1),
-            "diversity":  round(diversity * 100, 1),
-        },
+        "dimension_scores": dimension_scores,
         "llm_judge_raw":    judge_result,
         "critic_issues_count": critic_issues,
         "pareto_dominated":  None,  # utólag számítja ki a meta-agent
@@ -220,3 +227,51 @@ def compute_pareto_front(evaluations: list[dict]) -> list[dict]:
                 break
         ev["pareto_dominated"] = dominated
     return evaluations
+
+
+def compute_robustness_aggregate(runs_for_experiment: list[dict]) -> dict:
+    """
+    runs_for_experiment: egy experiment_id összes futása, különböző input_id-kkal
+    (ugyanaz a modell-kombináció, több különböző dokumentumon).
+
+    Ez adja a valódi robustness-mérést (evaluation_framework.yaml
+    robustness.components.variance_across_inputs) — az evaluate_run()-beli
+    egy-futásos robustness dimenzió csak egy közelítő helyettesítő addig,
+    amíg ez az aggregátum el nem készül.
+    """
+    if not runs_for_experiment:
+        return {}
+
+    experiment_id = runs_for_experiment[0].get("experiment_id")
+    n = len(runs_for_experiment)
+
+    quality_scores, composite_scores, costs, latencies = [], [], [], []
+    failures = 0
+    for r in runs_for_experiment:
+        ev = r.get("evaluation") or {}
+        q = (ev.get("dimension_scores") or {}).get("quality")
+        if q is not None:
+            quality_scores.append(q)
+        c = ev.get("composite_score")
+        if c is not None:
+            composite_scores.append(c)
+        if r.get("errors"):
+            failures += 1
+        metrics = r.get("metrics", {})
+        costs.append(metrics.get("total_cost_usd", 0) or 0)
+        latencies.append(metrics.get("total_latency_seconds", 0) or 0)
+
+    def _stdev(xs):
+        return round(statistics.stdev(xs), 2) if len(xs) >= 2 else 0.0
+
+    return {
+        "experiment_id":   experiment_id,
+        "n_inputs":        n,
+        "mean_quality":    round(statistics.mean(quality_scores), 2) if quality_scores else None,
+        "stdev_quality":   _stdev(quality_scores),
+        "mean_composite":  round(statistics.mean(composite_scores), 2) if composite_scores else None,
+        "stdev_composite": _stdev(composite_scores),
+        "failure_rate":    round(failures / n, 4),
+        "mean_cost_usd":   round(statistics.mean(costs), 6) if costs else None,
+        "mean_latency_s":  round(statistics.mean(latencies), 2) if latencies else None,
+    }
