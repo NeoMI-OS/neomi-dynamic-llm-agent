@@ -409,6 +409,56 @@ def postprocess_logged_runs(input_ids: list[str], experiment_ids: list[str] | No
     return {"runs_postprocessed": len(valid_runs)}
 
 
+def rejudge_logged_runs(run_ids: list[str]) -> dict:
+    """
+    Újrafuttatja az LLM-Judge-ot MÁR LOGOLT futások meglévő kimenetein — nem
+    futtatja újra a pipeline-t (nincs új content_writer/critic hívás, csak az
+    értékelési lépés). Akkor hasznos, ha az értékelési séma bővült (pl.
+    node_quality_scores hozzáadva) és a régebbi futásokra is szeretnénk
+    visszamenőleg megkapni az új mezőket, kis (csak a judge-hívás) költséggel.
+
+    A diverzitás-pontszám nem vész el: mivel a diverzitás a kimenet szövegétől
+    függ (ami nem változik újraítéléskor), a logger patch-feldolgozása a régi
+    diverzitás-értéket megtartja az új evaluation dict-ben is.
+    """
+    logger = ExperimentLogger(LOGS_DIR)
+    all_runs = logger.load_all_runs()
+    run_id_set = set(run_ids)
+    target_runs = [r for r in all_runs if r.get("run_id") in run_id_set]
+
+    rejudged, failed = [], []
+    for run in target_runs:
+        experiment_id = run.get("experiment_id")
+        try:
+            cfg = load_experiment(experiment_id)
+            judge_cfg = cfg.get("evaluation", {})
+        except FileNotFoundError:
+            judge_cfg = {}
+        try:
+            new_evaluation = evaluate_run(run, judge_cfg)
+            logger.log_rejudge_patch(run["run_id"], new_evaluation)
+            rejudged.append(run["run_id"])
+        except Exception as e:
+            failed.append({"run_id": run.get("run_id"), "error": str(e)})
+
+    # Az aggregátum táblát is frissíteni kell, mert a composite_score változott —
+    # experiment_id-nkénti újraszámolás a most már rejudge-elt adatokból.
+    patched_runs = logger.load_all_runs()
+    affected_experiment_ids = {r["experiment_id"] for r in target_runs}
+    by_experiment: dict[str, list] = {}
+    for r in patched_runs:
+        if r.get("experiment_id") in affected_experiment_ids and r.get("evaluation"):
+            by_experiment.setdefault(r["experiment_id"], []).append(r)
+    for exp_id, exp_runs in by_experiment.items():
+        aggregate = compute_robustness_aggregate(exp_runs)
+        if aggregate:
+            logger.log_aggregate(aggregate)
+
+    logger.write_diversity_and_recompute_csv()
+
+    return {"rejudged": len(rejudged), "failed": failed, "run_ids": rejudged}
+
+
 # ── CLI belépési pont ────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

@@ -22,7 +22,7 @@ from agent import run_agent
 from config import MODEL_CONFIG, ModelTier
 from experiment_runner import (
     run_experiment, run_experiment_series, run_experiment_series_multi_input,
-    postprocess_logged_runs, load_all_experiments, load_test_inputs,
+    postprocess_logged_runs, rejudge_logged_runs, load_all_experiments, load_test_inputs,
 )
 from experiment_logger import ExperimentLogger
 from meta_agent import run_meta_analysis
@@ -144,6 +144,10 @@ class ExperimentSeriesRequest(BaseModel):
 class PostprocessBatchRequest(BaseModel):
     input_ids: list[str]
     experiment_ids: Optional[list[str]] = None
+
+
+class RejudgeBatchRequest(BaseModel):
+    run_ids: list[str]
 
 
 class MetaAnalysisRequest(BaseModel):
@@ -451,6 +455,26 @@ async def postprocess_batch(request: PostprocessBatchRequest):
                 input_ids=request.input_ids,
                 experiment_ids=request.experiment_ids,
             ),
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/pipeline/rejudge-batch")
+async def rejudge_batch(request: RejudgeBatchRequest):
+    """
+    Újrafuttatja az LLM-Judge-ot MÁR LOGOLT futások meglévő kimenetein — a
+    pipeline-t (content_writer, critic, stb.) NEM futtatja újra, csak az
+    értékelési lépést. Akkor hasznos, ha az értékelési séma bővült (pl.
+    node_quality_scores hozzáadva egy korábbi séma-verzióhoz képest), és a
+    régebbi futásokra is szeretnénk visszamenőleg megkapni az új mezőket.
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: rejudge_logged_runs(run_ids=request.run_ids),
         )
         return result
     except Exception as e:

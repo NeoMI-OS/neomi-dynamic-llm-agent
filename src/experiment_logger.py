@@ -117,6 +117,19 @@ class ExperimentLogger:
             f.write(json.dumps(patch, ensure_ascii=False) + "\n")
         self._gcs_sync_up(self.jsonl_path)
 
+    def log_rejudge_patch(self, run_id: str, evaluation: dict) -> None:
+        """Appendál egy 'rejudge' patch-et: a Judge-ot újrafuttattuk egy MÁR
+        LOGOLT futás meglévő kimenetein (nem futtattuk újra a pipeline-t), pl.
+        mert bővült az értékelési séma (node_quality_scores). A patch a teljes
+        evaluation dict-et cseréli, DE a diverzitás-pontszámot load_all_runs()
+        megtartja a korábbi diverzitás-patch-ből, mert a diverzitás a kimenet
+        szövegétől függ, ami nem változott."""
+        self._gcs_sync_down(self.jsonl_path)
+        patch = {"patch_type": "rejudge", "run_id": run_id, "evaluation": evaluation}
+        with open(self.jsonl_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(patch, ensure_ascii=False) + "\n")
+        self._gcs_sync_up(self.jsonl_path)
+
     def log_aggregate(self, aggregate_record: dict) -> None:
         """Egy robustness-aggregátum sort ír a külön experiment_robustness_aggregate.csv-be
         (egy sor / experiment_id / batch — nem kell az alap run-CSV sémáját bővíteni vele)."""
@@ -152,22 +165,42 @@ class ExperimentLogger:
                         pass
 
         runs_by_id: dict[str, dict] = {}
-        patches: list[dict] = []
+        diversity_patches: list[dict] = []
+        rejudge_patches: list[dict] = []
         ordered_run_ids: list[str] = []
         for entry in raw_lines:
-            if entry.get("patch_type") == "diversity":
-                patches.append(entry)
+            patch_type = entry.get("patch_type")
+            if patch_type == "diversity":
+                diversity_patches.append(entry)
+            elif patch_type == "rejudge":
+                rejudge_patches.append(entry)
             else:
                 run_id = entry.get("run_id")
                 runs_by_id[run_id] = entry
                 ordered_run_ids.append(run_id)
 
-        for patch in patches:
+        patched_diversity_by_run: dict[str, float] = {}
+        for patch in diversity_patches:
             run = runs_by_id.get(patch["run_id"])
             if run is None or not run.get("evaluation"):
                 continue
-            scores = run["evaluation"].setdefault("dimension_scores", {})
-            scores["diversity"] = round(patch["diversity_score"] * 100, 1)
+            score = round(patch["diversity_score"] * 100, 1)
+            run["evaluation"].setdefault("dimension_scores", {})["diversity"] = score
+            patched_diversity_by_run[patch["run_id"]] = score
+
+        # A rejudge-patch a teljes evaluation dict-et cseréli (új node_quality_scores,
+        # llm_judge_raw, stb.), DE a diverzitást megtartjuk abból, amit fentebb egy
+        # VALÓS diversity-patch már beállított (nem a run eredeti log()-jából származó
+        # placeholder-t!) — a diverzitás a kimenet szövegétől függ, ami újraítéléskor
+        # nem változik, csak a Judge nézi újra ugyanazt a szöveget.
+        for patch in rejudge_patches:
+            run = runs_by_id.get(patch["run_id"])
+            if run is None:
+                continue
+            new_evaluation = patch["evaluation"]
+            if patch["run_id"] in patched_diversity_by_run:
+                new_evaluation.setdefault("dimension_scores", {})["diversity"] = patched_diversity_by_run[patch["run_id"]]
+            run["evaluation"] = new_evaluation
 
         from experiment_evaluator import recompute_composite_score
         for run_id in ordered_run_ids:
