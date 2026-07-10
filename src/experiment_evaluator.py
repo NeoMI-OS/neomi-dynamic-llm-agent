@@ -1,8 +1,13 @@
 """
 LLM-as-a-Judge értékelő modul.
-Az evaluation_framework.yaml composite score képletét implementálja:
-  Final_Score = (0.4 × Quality) + (0.2 × (1/Cost_norm)) + (0.15 × (1/Latency_norm)) +
-                (0.15 × Robustness) + (0.1 × Diversity)
+
+A composite score NEM tartalmazza a költséget — a user explicit döntése alapján
+(2026-07-10) a cost_score továbbra is kiszámolódik és látható marad külön
+mezőként (dimension_scores.cost, illetve a CSV cost_score oszlopa), de nem
+számít bele a súlyozott összesítő pontszámba. A maradék 4 dimenzió súlya
+arányosan újra lett skálázva 1.0-ra:
+  Final_Score = (0.50 × Quality) + (0.1875 × (1/Latency_norm)) +
+                (0.1875 × Robustness) + (0.125 × Diversity)
 """
 import os
 import sys
@@ -13,14 +18,19 @@ import statistics
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-# evaluation_framework.yaml composite_score.formula súlyai
-_DEFAULT_WEIGHTS = {"quality": 0.40, "cost": 0.20, "latency": 0.15, "robustness": 0.15, "diversity": 0.10}
+# A composite score-ba beszámító dimenziók és súlyaik — a cost szándékosan NINCS
+# benne (lásd a modul docstring-jét), de a dimension_scores dict-ben továbbra is
+# jelen van és külön nézhető/exportálható.
+_DEFAULT_WEIGHTS = {"quality": 0.50, "latency": 0.1875, "robustness": 0.1875, "diversity": 0.125}
 
 
 def recompute_composite_score(dimension_scores: dict, weights: dict | None = None) -> float:
     """Újraszámolja a composite score-t a dimension_scores (0-100 skálán) alapján,
     ugyanazzal a képlettel mint evaluate_run(). Akkor kell, ha egy dimenzió
-    (jellemzően diversity) utólag frissül a valós értékkel a placeholder helyett."""
+    (jellemzően diversity) utólag frissül a valós értékkel a placeholder helyett,
+    vagy ha maga a súlyozási képlet változik (pl. cost kizárása) — ez utóbbi esetben
+    a régi, már logolt futásokra is újra lefuttatható, új LLM-hívás nélkül, mert
+    minden dimenzió-pontszám már tárolva van."""
     w = weights or _DEFAULT_WEIGHTS
     composite = sum(w[dim] * (dimension_scores.get(dim, 0) or 0) / 100.0 for dim in w)
     return round(composite * 100, 1)
@@ -104,7 +114,15 @@ KRITIKA (critic kimenete):
 
 EREDETI CÉL: {purpose}
 
-Értékeld JSON formátumban:
+Értékeld JSON formátumban. A holisztikus mezők mellett add meg mind az 5 node
+KÜLÖN, önálló minőség-pontszámát is (node_scores) — azt értékelve, mennyire jól
+végezte el AZ ADOTT node a saját, specifikus feladatát:
+- context_analyst: helyesen azonosította-e a célt, közönséget, korlátokat?
+- needs_analyzer: mennyire releváns és specifikus a feltárt szükséglet-elemzés?
+- curriculum_designer: mennyire logikus, jól felépített a tananyag-struktúra?
+- content_writer: mennyire jó minőségű, használható maga a legyártott tartalom?
+- critic: mennyire alapos és hasznos a kritikai értékelés?
+
 {{
   "goal_alignment": <1-100>,
   "logical_consistency": <1-100>,
@@ -115,7 +133,14 @@ EREDETI CÉL: {purpose}
   "critic_issues_count": <integer>,
   "key_strengths": ["..."],
   "key_weaknesses": ["..."],
-  "justification": "..."
+  "justification": "...",
+  "node_scores": {{
+    "context_analyst":     {{"score": <1-100>, "comment": "..."}},
+    "needs_analyzer":      {{"score": <1-100>, "comment": "..."}},
+    "curriculum_designer": {{"score": <1-100>, "comment": "..."}},
+    "content_writer":      {{"score": <1-100>, "comment": "..."}},
+    "critic":              {{"score": <1-100>, "comment": "..."}}
+  }}
 }}
 
 Csak JSON-t adj vissza, semmi mást."""
@@ -200,6 +225,9 @@ def evaluate_run(run_record: dict, judge_cfg: dict | None = None) -> dict:
         "composite_score":   composite_pct,
         "dimension_scores": dimension_scores,
         "llm_judge_raw":    judge_result,
+        # Node-onkénti minőség-pontszám (a Judge egy hívásában, node_scores kulcs alatt kérve) —
+        # kiemelve a llm_judge_raw-ból a könnyebb elérhetőség kedvéért (export, UI, stb.).
+        "node_quality_scores": judge_result.get("node_scores", {}),
         "critic_issues_count": critic_issues,
         "pareto_dominated":  None,  # utólag számítja ki a meta-agent
         "quality_raw_score": quality_raw,

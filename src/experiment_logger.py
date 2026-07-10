@@ -131,8 +131,12 @@ class ExperimentLogger:
 
     def load_all_runs(self) -> list[dict]:
         """Visszaadja az összes eddigi run-rekordot, a diverzitás-patch-eket
-        ráillesztve a megfelelő run_id-jú rekordokra, és a composite_score-t
-        újraszámolva a valós diverzitással (a placeholder 0.5 helyett)."""
+        ráillesztve a megfelelő run_id-jú rekordokra. Minden futásnál (nem csak
+        a patch-elteknél!) újraszámolja a composite_score-t a jelenleg érvényes
+        súlyozási képlettel (recompute_composite_score) — így ha a formula
+        változik (pl. a cost kikerül a súlyozásból), az a már régen logolt
+        futásokra is automatikusan érvényesül a legközelebbi betöltéskor,
+        új LLM-hívás nélkül, mert minden dimenzió-pontszám már el van mentve."""
         self._gcs_sync_down(self.jsonl_path)
         if not self.jsonl_path.exists():
             return []
@@ -158,15 +162,18 @@ class ExperimentLogger:
                 runs_by_id[run_id] = entry
                 ordered_run_ids.append(run_id)
 
-        if patches:
-            from experiment_evaluator import recompute_composite_score
-            for patch in patches:
-                run = runs_by_id.get(patch["run_id"])
-                if run is None or not run.get("evaluation"):
-                    continue
-                scores = run["evaluation"].setdefault("dimension_scores", {})
-                scores["diversity"] = round(patch["diversity_score"] * 100, 1)
-                run["evaluation"]["composite_score"] = recompute_composite_score(scores)
+        for patch in patches:
+            run = runs_by_id.get(patch["run_id"])
+            if run is None or not run.get("evaluation"):
+                continue
+            scores = run["evaluation"].setdefault("dimension_scores", {})
+            scores["diversity"] = round(patch["diversity_score"] * 100, 1)
+
+        from experiment_evaluator import recompute_composite_score
+        for run_id in ordered_run_ids:
+            evaluation = runs_by_id[run_id].get("evaluation")
+            if evaluation and evaluation.get("dimension_scores"):
+                evaluation["composite_score"] = recompute_composite_score(evaluation["dimension_scores"])
 
         return [runs_by_id[rid] for rid in ordered_run_ids]
 

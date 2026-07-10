@@ -11,10 +11,16 @@ from experiment_evaluator import recompute_composite_score, compute_robustness_a
 
 
 class TestRecomputeCompositeScore:
-    def test_matches_known_production_value(self):
-        # Ugyanez a dimension_scores kombináció egy valós exp-001 futásnál 73.2-t adott.
+    def test_matches_known_formula_without_cost(self):
+        # quality*0.50 + latency*0.1875 + robustness*0.1875 + diversity*0.125, cost NEM számít bele
         ds = {"quality": 85.0, "cost": 69.8, "latency": 44.9, "robustness": 90.0, "diversity": 50.0}
-        assert recompute_composite_score(ds) == 73.2
+        expected = round((0.50 * 85.0 + 0.1875 * 44.9 + 0.1875 * 90.0 + 0.125 * 50.0), 1)
+        assert recompute_composite_score(ds) == expected
+
+    def test_cost_does_not_affect_composite(self):
+        ds_low_cost = {"quality": 85.0, "cost": 10.0, "latency": 44.9, "robustness": 90.0, "diversity": 50.0}
+        ds_high_cost = dict(ds_low_cost, cost=95.0)
+        assert recompute_composite_score(ds_low_cost) == recompute_composite_score(ds_high_cost)
 
     def test_higher_diversity_increases_composite(self):
         ds_low = {"quality": 85.0, "cost": 69.8, "latency": 44.9, "robustness": 90.0, "diversity": 50.0}
@@ -23,8 +29,8 @@ class TestRecomputeCompositeScore:
 
     def test_missing_dimension_defaults_to_zero(self):
         ds = {"quality": 100.0}
-        # csak a quality súlya (0.4) számít bele, a többi 0
-        assert recompute_composite_score(ds) == 40.0
+        # csak a quality súlya (0.50) számít bele, a többi (cost kizárva, a többi hiányzik) 0
+        assert recompute_composite_score(ds) == 50.0
 
     def test_custom_weights(self):
         ds = {"quality": 100.0, "cost": 0.0, "latency": 0.0, "robustness": 0.0, "diversity": 0.0}

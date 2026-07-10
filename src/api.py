@@ -480,6 +480,7 @@ async def get_logs(experiment_id: Optional[str] = None, limit: int = 20):
             "metrics":         r.get("metrics", {}),
             "composite_score": (r.get("evaluation") or {}).get("composite_score"),
             "dimension_scores": (r.get("evaluation") or {}).get("dimension_scores"),
+            "node_quality_scores": (r.get("evaluation") or {}).get("node_quality_scores"),
             "critic_issues":   (r.get("evaluation") or {}).get("critic_issues_count"),
             "errors":          len(r.get("errors", [])),
         }
