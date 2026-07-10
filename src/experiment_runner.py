@@ -96,11 +96,17 @@ def _extract_node_configs(experiment_cfg: dict) -> dict:
             src = node_cfg["primary"]
         else:
             src = node_cfg
-        result[node_name] = {
+        node_result = {
             "provider":    src.get("provider", "openai"),
             "model":       src.get("model", "gpt-4o-mini"),
             "temperature": src.get("temperature", 0.5),
         }
+        # Csak akkor vesszük fel, ha a YAML kifejezetten megadja — így a pipeline.py
+        # saját, node-specifikus alapértelmezettje (_DEFAULT_MAX_TOKENS) érvényesül,
+        # ha egy kísérlet nem ír felül semmit.
+        if "max_tokens" in src:
+            node_result["max_tokens"] = src["max_tokens"]
+        result[node_name] = node_result
     return result
 
 

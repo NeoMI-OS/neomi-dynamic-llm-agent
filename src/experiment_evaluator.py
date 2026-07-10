@@ -98,19 +98,19 @@ def run_llm_judge(outputs: dict, context: str, purpose: str,
 Az alábbi pipeline-kimeneteket értékeld 1–100 skálán az alábbi dimenziókban.
 
 KONTEXTUS (context_analyst kimenete):
-{outputs.get('context', 'n/a')[:500]}
+{outputs.get('context', 'n/a')}
 
 SZÜKSÉGLETEK (needs_analyzer kimenete):
-{outputs.get('needs', 'n/a')[:500]}
+{outputs.get('needs', 'n/a')}
 
 TANANYAG STRUKTÚRA (curriculum_designer kimenete):
-{outputs.get('curriculum', 'n/a')[:800]}
+{outputs.get('curriculum', 'n/a')}
 
-TARTALOM (content_writer kimenete – első 1000 karakter):
-{outputs.get('content', 'n/a')[:1000]}
+TARTALOM (content_writer kimenete):
+{outputs.get('content', 'n/a')}
 
 KRITIKA (critic kimenete):
-{outputs.get('critic', 'n/a')[:600]}
+{outputs.get('critic', 'n/a')}
 
 EREDETI CÉL: {purpose}
 

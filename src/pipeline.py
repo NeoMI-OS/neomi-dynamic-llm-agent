@@ -53,25 +53,37 @@ def _estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
 # Ezek a modellek elutasítják az explicit `temperature` paramétert (400-as hibát adnak)
 _NO_TEMPERATURE_MODELS = {"claude-opus-4-8"}
 
+# Node-onkénti alapértelmezett kimeneti token-limit — enélkül egyes modellek
+# (jellemzően a content_writer node-on) 60-160 ezer karakteres, kontrollálatlan
+# kimenetet is generáltak, amit sem a Judge (szűk truncation miatt), sem
+# gyakorlatilag senki nem tudott érdemben átolvasni/kiértékelni.
+_DEFAULT_MAX_TOKENS = {
+    "context_analyst":     1500,
+    "needs_analyzer":      2000,
+    "curriculum_designer": 3000,
+    "content_writer":      6000,
+    "critic":              2500,
+}
 
-def _get_llm(provider: str, model: str, temperature: float):
+
+def _get_llm(provider: str, model: str, temperature: float, max_tokens: int = 4000):
     temp_kwargs = {} if model in _NO_TEMPERATURE_MODELS else {"temperature": temperature}
     if provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
         return ChatGoogleGenerativeAI(
-            model=model, **temp_kwargs,
+            model=model, **temp_kwargs, max_output_tokens=max_tokens,
             google_api_key=os.getenv("GOOGLE_API_KEY")
         )
     elif provider == "openai":
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(
-            model=model, **temp_kwargs,
+            model=model, **temp_kwargs, max_tokens=max_tokens,
             api_key=os.getenv("OPENAI_API_KEY")
         )
     elif provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(
-            model=model, **temp_kwargs,
+            model=model, **temp_kwargs, max_tokens=max_tokens,
             api_key=os.getenv("ANTHROPIC_API_KEY")
         )
     raise ValueError(f"Ismeretlen provider: {provider}")
@@ -82,7 +94,8 @@ def _call_node(state: PipelineState, node_name: str, system_prompt: str, user_pr
     cfg = state["node_configs"].get(node_name, {
         "provider": "openai", "model": "gpt-4o-mini", "temperature": 0.5
     })
-    llm = _get_llm(cfg["provider"], cfg["model"], cfg.get("temperature", 0.5))
+    max_tokens = cfg.get("max_tokens", _DEFAULT_MAX_TOKENS.get(node_name, 4000))
+    llm = _get_llm(cfg["provider"], cfg["model"], cfg.get("temperature", 0.5), max_tokens)
 
     t0 = time.time()
     response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)])
