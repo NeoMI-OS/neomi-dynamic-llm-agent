@@ -173,6 +173,7 @@ def main():
     parser.add_argument("--logs-dir", default="experiment_logs", help="Helyi experiment_logs/ mappa (ha nincs --api-base)")
     parser.add_argument("--out-dir", default="exports", help="Kimeneti mappa a TSV fájloknak")
     parser.add_argument("--exclude-input-ids", default="", help="Vesszővel elválasztott input_id lista, amit ki kell zárni (pl. teszt-futások)")
+    parser.add_argument("--after-timestamp", default="", help="ISO8601 időbélyeg (pl. 2026-07-10T12:00:00Z) — csak az ennél KÉSŐBB started_at-tal rendelkező futásokat exportálja. Arra kell, ha egy metodológiai javítás (pl. max_tokens sapka) után a régi, elavult futásokat ki kell zárni anélkül, hogy törölnénk a logból.")
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -190,6 +191,9 @@ def main():
 
     if exclude_ids:
         raw_runs = [r for r in raw_runs if r.get("input_id") not in exclude_ids]
+
+    if args.after_timestamp:
+        raw_runs = [r for r in raw_runs if (r.get("started_at") or "") > args.after_timestamp]
 
     run_rows = build_run_rows(raw_runs)
     node_rows = build_node_rows(raw_runs)

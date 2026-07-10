@@ -10,14 +10,15 @@ from export_for_sheet import build_run_rows, build_node_rows, NODE_NAMES
 
 
 def _raw_run(run_id="run-1", experiment_id="exp-001", input_id="in-1",
-             node_quality_scores=None, node_timings=None):
+             node_quality_scores=None, node_timings=None,
+             started_at_override="2026-07-10T00:00:00Z"):
     return {
         "run_id": run_id,
         "experiment_id": experiment_id,
         "input_id": input_id,
         "experiment_name": "Test",
         "strategy": "trivial_strongest",
-        "started_at": "2026-07-10T00:00:00Z",
+        "started_at": started_at_override,
         "metrics": {
             "total_cost_usd": 0.15,
             "total_latency_seconds": 60,
@@ -82,3 +83,27 @@ class TestBuildNodeRows:
     def test_multiple_runs_produce_independent_node_rows(self):
         rows = build_node_rows([_raw_run("run-1"), _raw_run("run-2")])
         assert len(rows) == 2 * len(NODE_NAMES)
+
+
+class TestAfterTimestampFilter:
+    """A main()-ben lévő --after-timestamp szűrő ugyanazt a mintát követi mint a
+    meglévő --exclude-input-ids: sima lexikografikus ISO8601 összehasonlítás,
+    hogy egy metodológiai javítás (pl. max_tokens sapka) utáni friss futásokat
+    el lehessen különíteni a régi, elavult futásoktól a logban anélkül, hogy
+    törölnénk azokat."""
+
+    def _filter(self, raw_runs, after_timestamp):
+        return [r for r in raw_runs if (r.get("started_at") or "") > after_timestamp]
+
+    def test_excludes_runs_at_or_before_cutoff(self):
+        runs = [
+            _raw_run("run-old", started_at_override="2026-07-09T00:00:00Z"),
+            _raw_run("run-new", started_at_override="2026-07-10T12:00:00Z"),
+        ]
+        result = self._filter(runs, "2026-07-10T00:00:00Z")
+        assert [r["run_id"] for r in result] == ["run-new"]
+
+    def test_missing_started_at_is_excluded(self):
+        runs = [_raw_run("run-no-ts", started_at_override=None)]
+        result = self._filter(runs, "2026-07-10T00:00:00Z")
+        assert result == []
