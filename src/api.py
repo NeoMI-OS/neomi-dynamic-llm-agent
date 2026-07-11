@@ -150,6 +150,10 @@ class RejudgeBatchRequest(BaseModel):
     run_ids: list[str]
 
 
+class DiversityBatchRequest(BaseModel):
+    run_id_groups: list[list[str]]
+
+
 class MetaAnalysisRequest(BaseModel):
     provider: str = "anthropic"
     model: str = "claude-opus-4-8"
@@ -475,6 +479,28 @@ async def rejudge_batch(request: RejudgeBatchRequest):
         result = await loop.run_in_executor(
             None,
             lambda: rejudge_logged_runs(run_ids=request.run_ids),
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/pipeline/diversity-batch")
+async def diversity_batch(request: DiversityBatchRequest):
+    """
+    Diverzitás-számítás explicit run_id-csoportokra (nem input_id alapján
+    csoportosítva). Akkor kell, ha egy batch részleges javító-újrafuttatása
+    miatt a logikailag egy input dokumentumhoz tartozó futások eltérő
+    (szuffixált) input_id alatt vannak naplózva, és emiatt a szokásos
+    input_id-alapú csoportosítás (postprocess-batch) nem hasonlítaná össze
+    őket helyesen.
+    """
+    from experiment_runner import postprocess_diversity_for_run_groups
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: postprocess_diversity_for_run_groups(request.run_id_groups),
         )
         return result
     except Exception as e:

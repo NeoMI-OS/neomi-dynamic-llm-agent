@@ -415,6 +415,38 @@ def postprocess_logged_runs(input_ids: list[str], experiment_ids: list[str] | No
     return {"runs_postprocessed": len(valid_runs)}
 
 
+def postprocess_diversity_for_run_groups(run_id_groups: list[list[str]]) -> dict:
+    """
+    Diverzitás-számítás EXPLICIT run_id-csoportokra, nem input_id alapú
+    csoportosítással. Akkor kell, ha egy batch részleges újrafuttatása miatt
+    a "logikailag" ugyanahhoz az input dokumentumhoz tartozó futások eltérő
+    (szuffixált) input_id alatt vannak naplózva — pl. egy hibás pár javított
+    újrafuttatása "-v3fix" toldalékos input_id-t kapott, hogy a resume-logika
+    ne keverje össze a régi (hibás) rekorddal. Minden belső lista egy közös
+    eredeti dokumentumhoz tartozó, különböző experiment_id-jű futások run_id-jait
+    tartalmazza.
+    """
+    logger = ExperimentLogger(LOGS_DIR)
+    all_runs = {r["run_id"]: r for r in logger.load_all_runs()}
+    patched_run_ids = []
+    errors = []
+    for group in run_id_groups:
+        runs_same_input = [all_runs[rid] for rid in group if rid in all_runs]
+        if len(runs_same_input) < 2:
+            continue
+        try:
+            div_result = compute_diversity_for_input(runs_same_input)
+            for exp_id, div_score in div_result.get("per_experiment_diversity", {}).items():
+                run = next((r for r in runs_same_input if r["experiment_id"] == exp_id), None)
+                if run:
+                    logger.log_diversity_patch(run["run_id"], div_score)
+                    patched_run_ids.append(run["run_id"])
+        except Exception as e:
+            errors.append(str(e))
+    logger.write_diversity_and_recompute_csv()
+    return {"patched_run_ids": patched_run_ids, "errors": errors}
+
+
 def rejudge_logged_runs(run_ids: list[str]) -> dict:
     """
     Újrafuttatja az LLM-Judge-ot MÁR LOGOLT futások meglévő kimenetein — nem
