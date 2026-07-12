@@ -74,3 +74,39 @@ def compute_diversity_for_input(runs_same_input: list[dict]) -> dict:
         "pairwise_avg_similarity": pairwise_avg,
         "per_experiment_diversity": per_experiment_diversity,
     }
+
+
+def compute_novelty_vs_baseline(runs_same_input: list[dict], baseline_experiment_id: str) -> dict:
+    """
+    Novelty score (Phase 2): mennyire tér el az egyes kísérletek kimenete a
+    kitüntetett "naiv" baseline stratégiától (alapértelmezésben exp-001,
+    trivial_strongest) ugyanazon a dokumentumon, embedding-alapú cosinus-
+    távolsággal.
+
+    Ez KIEGÉSZÍTI, nem helyettesíti a compute_diversity_for_input()-ot: az ottani
+    diverzitás az ÖSSZES kombináció EGYMÁSHOZ viszonyított átlagos különbözőségét
+    méri ("mennyire más ez, mint az átlagos többi stratégia"), míg ez a novelty
+    egy KONKRÉT, kitüntetett referenciához viszonyítva méri az eltérést
+    ("mennyire más ez, mint amit alapból, kreativitás nélkül csinálnánk").
+
+    Visszaad: {experiment_id: novelty_score (0-1)} -- a baseline saját maga nem
+    szerepel benne (novelty vs. önmaga értelmetlen). Üres dict, ha a baseline
+    nem található a csoportban.
+    """
+    baseline = next((r for r in runs_same_input if r.get("experiment_id") == baseline_experiment_id), None)
+    if baseline is None:
+        return {}
+
+    baseline_text = baseline.get("outputs", {}).get("content", "") or ""
+    baseline_emb = embed_text(baseline_text)
+
+    result = {}
+    for r in runs_same_input:
+        exp_id = r.get("experiment_id")
+        if exp_id == baseline_experiment_id:
+            continue
+        text = r.get("outputs", {}).get("content", "") or ""
+        emb = embed_text(text)
+        sim = cosine_similarity(baseline_emb, emb)
+        result[exp_id] = max(0.0, min(1.0, 1.0 - sim))
+    return result

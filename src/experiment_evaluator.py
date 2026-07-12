@@ -257,6 +257,104 @@ def compute_pareto_front(evaluations: list[dict]) -> list[dict]:
     return evaluations
 
 
+def compute_critic_hit_rate(runs: list[dict]) -> dict:
+    """
+    critic_hit_rate (Phase 2): kísérletenként, a critic node SAJÁT, nyers JSON
+    kimenetéből (outputs.critic, nem a Judge utólagos összegzéséből) számolt
+    arány -- hány futásban jelzett a critic legalább egy "kritikus" súlyosságú
+    issue-t. Nincs új API-hívás, a már naplózott futásokból számolódik.
+
+    runs: run_record lista, "experiment_id" és "outputs.critic" mezőkkel.
+    Visszaad: {experiment_id: hit_rate (0-1)}.
+    """
+    by_exp: dict[str, list[bool]] = {}
+    for r in runs:
+        exp_id = r.get("experiment_id")
+        if not exp_id:
+            continue
+        critic_raw = (r.get("outputs") or {}).get("critic", "") or ""
+        parsed = _parse_json_safe(critic_raw)
+        issues = parsed.get("issues", []) if isinstance(parsed, dict) else []
+        has_critical = any(
+            isinstance(issue, dict) and (issue.get("severity") or "").strip().lower() == "kritikus"
+            for issue in issues
+        )
+        by_exp.setdefault(exp_id, []).append(has_critical)
+
+    return {
+        exp_id: round(sum(flags) / len(flags), 4) if flags else 0.0
+        for exp_id, flags in by_exp.items()
+    }
+
+
+def compute_fusion_gain(pipeline_runs: list[dict], baseline_runs: list[dict]) -> dict:
+    """
+    fusion_gain (Phase 2): mennyivel jobb (vagy rosszabb) a multi-agent
+    pipeline egy ugyanazon input dokumentumon futtatott egylépéses
+    ("single_call_baseline") megoldásnál, composite_score pontban mérve.
+    Pozitív érték = a pipeline jobb, mint az egylépéses baseline ugyanazon
+    a dokumentumon.
+
+    pipeline_runs: rendes (5-node) kísérlet-futások, "run_id"/"input_id"
+    mezőkkel és evaluation.composite_score-ral.
+    baseline_runs: egylépéses baseline-futások, "input_id"-nkénti
+    evaluation.composite_score-ral (jellemzően 1 baseline / input).
+
+    Visszaad: {run_id: fusion_gain}.
+    """
+    baseline_composite_by_input: dict[str, float] = {}
+    for b in baseline_runs:
+        input_id = b.get("input_id")
+        composite = (b.get("evaluation") or {}).get("composite_score")
+        if input_id and composite is not None:
+            baseline_composite_by_input[input_id] = composite
+
+    result = {}
+    for r in pipeline_runs:
+        input_id = r.get("input_id")
+        baseline_composite = baseline_composite_by_input.get(input_id)
+        pipeline_composite = (r.get("evaluation") or {}).get("composite_score")
+        if baseline_composite is not None and pipeline_composite is not None:
+            result[r["run_id"]] = round(pipeline_composite - baseline_composite, 1)
+    return result
+
+
+def compute_pareto_front_multi_dim(experiments: list[dict], dims: list[str] | None = None) -> list[str]:
+    """
+    Pareto-front kísérlet-szinten (nem futás-szinten), az evaluation_framework.yaml
+    saját meghatározása szerint: "A nem dominált megoldások halmaza Q/Cost/Latency/
+    Robustness dimenziókban". Külön függvény a meglévő, futás-szintű, csak
+    Quality+Cost dimenziós compute_pareto_front()-tól (amit a meta_agent.py már
+    használ ettől eltérő szignatúrával) -- itt NEM mutáljuk az input elemeket.
+
+    experiments: [{"experiment_id": ..., "dimension_scores": {"quality":.., "cost":.., ...}}, ...]
+    (jellemzően kísérletenkénti ÁTLAGOS dimension_scores, több input across-average-je).
+    dims: mely dimension_scores kulcsokat vegyük figyelembe (mind 0-100 skálán,
+    magasabb = jobb). Alapértelmezés: quality, cost, latency, robustness.
+
+    Visszaadja a nem dominált (Pareto-optimális) experiment_id-k listáját.
+    Egy kísérlet akkor dominált, ha van olyan MÁSIK kísérlet, amely minden
+    dimenzióban >= és legalább egyben szigorúan > nála.
+    """
+    dims = dims or ["quality", "cost", "latency", "robustness"]
+    front = []
+    for e in experiments:
+        e_scores = e.get("dimension_scores", {})
+        dominated = False
+        for other in experiments:
+            if other.get("experiment_id") == e.get("experiment_id"):
+                continue
+            o_scores = other.get("dimension_scores", {})
+            ge_all = all((o_scores.get(d, 0) or 0) >= (e_scores.get(d, 0) or 0) for d in dims)
+            gt_any = any((o_scores.get(d, 0) or 0) > (e_scores.get(d, 0) or 0) for d in dims)
+            if ge_all and gt_any:
+                dominated = True
+                break
+        if not dominated:
+            front.append(e.get("experiment_id"))
+    return front
+
+
 def compute_robustness_aggregate(runs_for_experiment: list[dict]) -> dict:
     """
     runs_for_experiment: egy experiment_id összes futása, különböző input_id-kkal

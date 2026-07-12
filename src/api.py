@@ -123,6 +123,16 @@ class PipelineRunRequest(BaseModel):
     input_id: Optional[str] = None  # multi-input batch-eknél a dokumentum azonosítója
 
 
+class SingleCallBaselineRequest(BaseModel):
+    input_document: str
+    purpose: str
+    input_id: str
+    provider: str = "anthropic"
+    model: str = "claude-opus-4-8"
+    temperature: float = 0.5
+    auto_evaluate: bool = True
+
+
 class SeriesInput(BaseModel):
     input_document: str
     purpose: str
@@ -152,6 +162,29 @@ class RejudgeBatchRequest(BaseModel):
 
 class DiversityBatchRequest(BaseModel):
     run_id_groups: list[list[str]]
+    baseline_experiment_id: Optional[str] = None
+
+
+class CrossJudgeRequest(BaseModel):
+    run_ids: list[str]
+    judge_provider: str = "openai"
+    judge_model: str = "gpt-4o"
+
+
+class NodeConfigEntry(BaseModel):
+    provider: str
+    model: str
+    temperature: float = 0.5
+    max_tokens: Optional[int] = None
+
+
+class RunCustomRequest(BaseModel):
+    input_document: str
+    purpose: str
+    node_configs: dict[str, NodeConfigEntry]
+    input_id: str
+    label: str
+    auto_evaluate: bool = True
 
 
 class MetaAnalysisRequest(BaseModel):
@@ -500,9 +533,103 @@ async def diversity_batch(request: DiversityBatchRequest):
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
-            lambda: postprocess_diversity_for_run_groups(request.run_id_groups),
+            lambda: postprocess_diversity_for_run_groups(request.run_id_groups, request.baseline_experiment_id),
         )
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/pipeline/single-call-baseline")
+async def single_call_baseline(request: SingleCallBaselineRequest):
+    """
+    Lefuttatja az egylépéses baseline-t (Phase 2 fusion_gain referenciapont):
+    egyetlen LLM-hívással próbálja megoldani a teljes feladatot, amit az
+    5-node pipeline lépésekben végez el. Külön "baseline-single-call"
+    experiment_id alatt naplózódik, hogy ne keveredjen a 10 rendes kísérlettel.
+    """
+    from experiment_runner import run_single_call_baseline_experiment
+    try:
+        loop = asyncio.get_event_loop()
+        record = await loop.run_in_executor(
+            None,
+            lambda: run_single_call_baseline_experiment(
+                input_document=request.input_document,
+                purpose=request.purpose,
+                input_id=request.input_id,
+                provider=request.provider,
+                model=request.model,
+                temperature=request.temperature,
+                auto_evaluate=request.auto_evaluate,
+            ),
+        )
+        return {
+            "run_id": record["run_id"],
+            "input_id": record.get("input_id"),
+            "metrics": record["metrics"],
+            "evaluation": record.get("evaluation"),
+            "errors": record.get("errors", []),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/pipeline/cross-judge")
+async def cross_judge(request: CrossJudgeRequest):
+    """
+    Másodlagos LLM-judge kereszt-ellenőrzés (Phase 2): újraértékeli MÁR
+    LOGOLT futások kimeneteit egy alternatív judge-modellel (alapból gpt-4o
+    a claude-opus-4-8 elsődleges Judge helyett), a kanonikus evaluation
+    módosítása NÉLKÜL -- csak az elsődleges/másodlagos összehasonlításhoz
+    szükséges pontszámokat adja vissza.
+    """
+    from experiment_runner import cross_judge_logged_runs
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: cross_judge_logged_runs(
+                run_ids=request.run_ids,
+                judge_provider=request.judge_provider,
+                judge_model=request.judge_model,
+            ),
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/pipeline/run-custom")
+async def run_custom(request: RunCustomRequest):
+    """
+    Egyedi, ad-hoc pipeline-futtatás EXPLICIT node_configs-szal, YAML-fájl
+    nélkül (Phase 2 node-swap sensitivity analízishez). `label` az
+    experiment_id helyén szerepel a naplózásban, hogy ne keveredjen a 10
+    rendes, YAML-alapú kísérlettel.
+    """
+    from experiment_runner import run_pipeline_custom
+    try:
+        loop = asyncio.get_event_loop()
+        node_configs = {k: v.model_dump(exclude_none=True) for k, v in request.node_configs.items()}
+        record = await loop.run_in_executor(
+            None,
+            lambda: run_pipeline_custom(
+                input_document=request.input_document,
+                purpose=request.purpose,
+                node_configs=node_configs,
+                input_id=request.input_id,
+                label=request.label,
+                auto_evaluate=request.auto_evaluate,
+            ),
+        )
+        return {
+            "run_id": record["run_id"],
+            "experiment_id": record["experiment_id"],
+            "input_id": record.get("input_id"),
+            "metrics": record["metrics"],
+            "evaluation": record.get("evaluation"),
+            "errors": record.get("errors", []),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

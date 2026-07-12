@@ -62,3 +62,40 @@ class TestComputeDiversityForInput:
         ]
         result = dm.compute_diversity_for_input(runs)
         assert set(result["per_experiment_diversity"].keys()) == {"exp-A", "exp-B"}
+
+
+class TestComputeNoveltyVsBaseline:
+    def test_baseline_excluded_from_result(self, monkeypatch):
+        monkeypatch.setattr(dm, "embed_text", lambda text, model="text-embedding-3-small": [1.0, 0.0])
+        runs = [
+            {"experiment_id": "exp-001", "outputs": {"content": "baseline"}},
+            {"experiment_id": "exp-006", "outputs": {"content": "other"}},
+        ]
+        result = dm.compute_novelty_vs_baseline(runs, "exp-001")
+        assert "exp-001" not in result
+        assert "exp-006" in result
+
+    def test_identical_to_baseline_has_zero_novelty(self, monkeypatch):
+        monkeypatch.setattr(dm, "embed_text", lambda text, model="text-embedding-3-small": [1.0, 0.0])
+        runs = [
+            {"experiment_id": "exp-001", "outputs": {"content": "same"}},
+            {"experiment_id": "exp-002", "outputs": {"content": "same"}},
+        ]
+        result = dm.compute_novelty_vs_baseline(runs, "exp-001")
+        assert abs(result["exp-002"] - 0.0) < 1e-9
+
+    def test_orthogonal_to_baseline_has_high_novelty(self, monkeypatch):
+        vectors = {"base": [1.0, 0.0], "diff": [0.0, 1.0]}
+        monkeypatch.setattr(dm, "embed_text", lambda text, model="text-embedding-3-small": vectors[text])
+        runs = [
+            {"experiment_id": "exp-001", "outputs": {"content": "base"}},
+            {"experiment_id": "exp-006", "outputs": {"content": "diff"}},
+        ]
+        result = dm.compute_novelty_vs_baseline(runs, "exp-001")
+        assert abs(result["exp-006"] - 1.0) < 1e-9
+
+    def test_missing_baseline_returns_empty_dict(self, monkeypatch):
+        monkeypatch.setattr(dm, "embed_text", lambda text, model="text-embedding-3-small": [1.0, 0.0])
+        runs = [{"experiment_id": "exp-006", "outputs": {"content": "x"}}]
+        result = dm.compute_novelty_vs_baseline(runs, "exp-001")
+        assert result == {}

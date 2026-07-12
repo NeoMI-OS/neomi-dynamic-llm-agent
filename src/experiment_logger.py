@@ -117,6 +117,18 @@ class ExperimentLogger:
             f.write(json.dumps(patch, ensure_ascii=False) + "\n")
         self._gcs_sync_up(self.jsonl_path)
 
+    def log_novelty_patch(self, run_id: str, novelty_score: float) -> None:
+        """Appendál egy novelty-patch rekordot (Phase 2): mennyire tér el a
+        futás kimenete a kitüntetett baseline stratégiától (embedding-alapú
+        cosinus-távolság). Kiegészítő, feltáró metrika -- NEM része a
+        composite_score-nak/dimension_scores-nak, külön mezőként (evaluation.
+        novelty_score) jelenik meg."""
+        self._gcs_sync_down(self.jsonl_path)
+        patch = {"patch_type": "novelty", "run_id": run_id, "novelty_score": novelty_score}
+        with open(self.jsonl_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(patch, ensure_ascii=False) + "\n")
+        self._gcs_sync_up(self.jsonl_path)
+
     def log_rejudge_patch(self, run_id: str, evaluation: dict) -> None:
         """Appendál egy 'rejudge' patch-et: a Judge-ot újrafuttattuk egy MÁR
         LOGOLT futás meglévő kimenetein (nem futtattuk újra a pipeline-t), pl.
@@ -166,12 +178,15 @@ class ExperimentLogger:
 
         runs_by_id: dict[str, dict] = {}
         diversity_patches: list[dict] = []
+        novelty_patches: list[dict] = []
         rejudge_patches: list[dict] = []
         ordered_run_ids: list[str] = []
         for entry in raw_lines:
             patch_type = entry.get("patch_type")
             if patch_type == "diversity":
                 diversity_patches.append(entry)
+            elif patch_type == "novelty":
+                novelty_patches.append(entry)
             elif patch_type == "rejudge":
                 rejudge_patches.append(entry)
             else:
@@ -188,11 +203,20 @@ class ExperimentLogger:
             run["evaluation"].setdefault("dimension_scores", {})["diversity"] = score
             patched_diversity_by_run[patch["run_id"]] = score
 
+        patched_novelty_by_run: dict[str, float] = {}
+        for patch in novelty_patches:
+            run = runs_by_id.get(patch["run_id"])
+            if run is None or not run.get("evaluation"):
+                continue
+            score = round(patch["novelty_score"] * 100, 1)
+            run["evaluation"]["novelty_score"] = score
+            patched_novelty_by_run[patch["run_id"]] = score
+
         # A rejudge-patch a teljes evaluation dict-et cseréli (új node_quality_scores,
-        # llm_judge_raw, stb.), DE a diverzitást megtartjuk abból, amit fentebb egy
-        # VALÓS diversity-patch már beállított (nem a run eredeti log()-jából származó
-        # placeholder-t!) — a diverzitás a kimenet szövegétől függ, ami újraítéléskor
-        # nem változik, csak a Judge nézi újra ugyanazt a szöveget.
+        # llm_judge_raw, stb.), DE a diverzitást és a novelty_score-t megtartjuk abból,
+        # amit fentebb egy VALÓS patch már beállított (nem a run eredeti log()-jából
+        # származó placeholder-t!) — mindkettő a kimenet szövegétől függ, ami
+        # újraítéléskor nem változik, csak a Judge nézi újra ugyanazt a szöveget.
         for patch in rejudge_patches:
             run = runs_by_id.get(patch["run_id"])
             if run is None:
@@ -200,6 +224,8 @@ class ExperimentLogger:
             new_evaluation = patch["evaluation"]
             if patch["run_id"] in patched_diversity_by_run:
                 new_evaluation.setdefault("dimension_scores", {})["diversity"] = patched_diversity_by_run[patch["run_id"]]
+            if patch["run_id"] in patched_novelty_by_run:
+                new_evaluation["novelty_score"] = patched_novelty_by_run[patch["run_id"]]
             run["evaluation"] = new_evaluation
 
         from experiment_evaluator import recompute_composite_score

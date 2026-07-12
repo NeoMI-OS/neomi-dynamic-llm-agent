@@ -72,6 +72,19 @@ class TestRejudgePatch:
         run = logger.load_all_runs()[0]
         assert run["evaluation"]["dimension_scores"]["diversity"] == 33.3
 
+    def test_novelty_score_preserved_across_rejudge(self, tmp_path):
+        logger = ExperimentLogger(tmp_path)
+        logger.log(_base_record())
+        logger.log_novelty_patch("run-x", 0.65)
+
+        logger.log_rejudge_patch("run-x", {
+            "composite_score": 0,
+            "dimension_scores": {"quality": 90.0, "cost": 50.0, "latency": 50.0, "robustness": 90.0, "diversity": 50.0},
+            "node_quality_scores": {}, "critic_issues_count": 0, "pareto_dominated": None,
+        })
+        run = logger.load_all_runs()[0]
+        assert run["evaluation"]["novelty_score"] == 65.0
+
     def test_unrelated_run_untouched(self, tmp_path):
         logger = ExperimentLogger(tmp_path)
         logger.log(_base_record("run-a"))

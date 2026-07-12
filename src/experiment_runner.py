@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pipeline import run_pipeline
 from experiment_logger import ExperimentLogger
 from experiment_evaluator import evaluate_run, compute_robustness_aggregate
-from diversity_metrics import compute_diversity_for_input
+from diversity_metrics import compute_diversity_for_input, compute_novelty_vs_baseline
 from cost_guard import (
     check_cost_cap, CostCapExceeded, sum_global_cost_from_csv,
     DEFAULT_SERIES_COST_CAP_USD, DEFAULT_GLOBAL_DAILY_COST_CAP_USD,
@@ -415,7 +415,8 @@ def postprocess_logged_runs(input_ids: list[str], experiment_ids: list[str] | No
     return {"runs_postprocessed": len(valid_runs)}
 
 
-def postprocess_diversity_for_run_groups(run_id_groups: list[list[str]]) -> dict:
+def postprocess_diversity_for_run_groups(run_id_groups: list[list[str]],
+                                          baseline_experiment_id: str | None = None) -> dict:
     """
     Diverzitás-számítás EXPLICIT run_id-csoportokra, nem input_id alapú
     csoportosítással. Akkor kell, ha egy batch részleges újrafuttatása miatt
@@ -425,10 +426,16 @@ def postprocess_diversity_for_run_groups(run_id_groups: list[list[str]]) -> dict
     ne keverje össze a régi (hibás) rekorddal. Minden belső lista egy közös
     eredeti dokumentumhoz tartozó, különböző experiment_id-jű futások run_id-jait
     tartalmazza.
+
+    baseline_experiment_id: ha meg van adva (Phase 2), minden csoportra
+    novelty_score-t is számol és patchel (compute_novelty_vs_baseline) --
+    mennyire tér el az egyes kísérletek kimenete a kitüntetett baseline
+    stratégiától, embedding-alapú cosinus-távolsággal.
     """
     logger = ExperimentLogger(LOGS_DIR)
     all_runs = {r["run_id"]: r for r in logger.load_all_runs()}
     patched_run_ids = []
+    novelty_patched_run_ids = []
     errors = []
     for group in run_id_groups:
         runs_same_input = [all_runs[rid] for rid in group if rid in all_runs]
@@ -443,8 +450,24 @@ def postprocess_diversity_for_run_groups(run_id_groups: list[list[str]]) -> dict
                     patched_run_ids.append(run["run_id"])
         except Exception as e:
             errors.append(str(e))
+
+        if baseline_experiment_id:
+            try:
+                novelty_result = compute_novelty_vs_baseline(runs_same_input, baseline_experiment_id)
+                for exp_id, novelty_score in novelty_result.items():
+                    run = next((r for r in runs_same_input if r["experiment_id"] == exp_id), None)
+                    if run:
+                        logger.log_novelty_patch(run["run_id"], novelty_score)
+                        novelty_patched_run_ids.append(run["run_id"])
+            except Exception as e:
+                errors.append(str(e))
+
     logger.write_diversity_and_recompute_csv()
-    return {"patched_run_ids": patched_run_ids, "errors": errors}
+    return {
+        "patched_run_ids": patched_run_ids,
+        "novelty_patched_run_ids": novelty_patched_run_ids,
+        "errors": errors,
+    }
 
 
 def rejudge_logged_runs(run_ids: list[str]) -> dict:
@@ -495,6 +518,155 @@ def rejudge_logged_runs(run_ids: list[str]) -> dict:
     logger.write_diversity_and_recompute_csv()
 
     return {"rejudged": len(rejudged), "failed": failed, "run_ids": rejudged}
+
+
+def run_pipeline_custom(input_document: str, purpose: str, node_configs: dict, input_id: str,
+                         label: str, auto_evaluate: bool = True,
+                         judge_provider: str = "anthropic", judge_model: str = "claude-opus-4-8") -> dict:
+    """
+    Egyedi, ad-hoc pipeline-futtatás EXPLICIT node_configs-szal, YAML-fájl
+    nélkül (Phase 2 node-swap sensitivity analízishez kell): egy adott
+    kísérlet node-konfigurációjának egyetlen node-ját lecserélve futtatja a
+    pipeline-t, hogy megmérje, mennyire érzékeny a composite_score egyetlen
+    node modell-választására. `label` az experiment_id helyén szerepel a
+    naplózásban (pl. "exp-006-swap-content_writer"), hogy ne keveredjen a
+    rendes, YAML-alapú kísérletekkel.
+    """
+    run_id = f"run-{uuid.uuid4().hex[:8]}"
+    started_at = datetime.now(timezone.utc).isoformat()
+
+    pipeline_result = run_pipeline(
+        input_document=input_document, purpose=purpose,
+        node_configs=node_configs, experiment_id=label,
+    )
+
+    run_record = {
+        "run_id": run_id,
+        "experiment_id": label,
+        "input_id": input_id,
+        "experiment_name": f"Ad-hoc node-swap: {label}",
+        "optimization_strategy": "custom_node_swap",
+        "started_at": started_at,
+        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "purpose": purpose,
+        "node_configs": node_configs,
+        "outputs": {
+            "context":    pipeline_result["context_output"],
+            "needs":      pipeline_result["needs_output"],
+            "curriculum": pipeline_result["curriculum_output"],
+            "content":    pipeline_result["content_output"],
+            "critic":     pipeline_result["critic_output"],
+        },
+        "metrics": {
+            "node_timings":   pipeline_result["node_timings"],
+            "node_tokens":    pipeline_result["node_tokens"],
+            "node_costs_usd": pipeline_result["node_costs_usd"],
+            "total_tokens":   pipeline_result["total_tokens"],
+            "total_cost_usd": pipeline_result["total_cost_usd"],
+            "total_latency_seconds": pipeline_result["total_latency_seconds"],
+        },
+        "errors": pipeline_result.get("errors", []),
+        "tags": ["custom", "node_swap_sensitivity"],
+        "evaluation": None,
+    }
+
+    if auto_evaluate:
+        run_record["evaluation"] = evaluate_run(
+            run_record, judge_cfg={"judge_provider": judge_provider, "judge_model": judge_model}
+        )
+
+    logger = ExperimentLogger(LOGS_DIR)
+    logger.log(run_record)
+    return run_record
+
+
+def cross_judge_logged_runs(run_ids: list[str], judge_provider: str = "openai",
+                             judge_model: str = "gpt-4o") -> dict:
+    """
+    Másodlagos LLM-judge kereszt-ellenőrzés (Phase 2): újraértékeli MÁR
+    LOGOLT futások meglévő kimeneteit egy ALTERNATÍV judge-modellel (pl.
+    gpt-4o a claude-opus-4-8 elsődleges Judge helyett), de NEM írja felül a
+    kanonikus evaluation-t -- csak visszaadja az összehasonlításhoz szükséges
+    adatokat (elsődleges vs. másodlagos composite_score, egyetértés mértéke).
+    Ez szándékosan "dry" (nem patchel semmit), hogy a már lezárt, tiszta 30-
+    futásos adatkészletet ne módosítsa.
+    """
+    logger = ExperimentLogger(LOGS_DIR)
+    all_runs = {r["run_id"]: r for r in logger.load_all_runs()}
+
+    results = []
+    errors = []
+    for run_id in run_ids:
+        run = all_runs.get(run_id)
+        if run is None:
+            errors.append(f"{run_id}: nem található")
+            continue
+        try:
+            secondary_evaluation = evaluate_run(
+                run, judge_cfg={"judge_provider": judge_provider, "judge_model": judge_model}
+            )
+            primary_evaluation = run.get("evaluation") or {}
+            results.append({
+                "run_id": run_id,
+                "experiment_id": run.get("experiment_id"),
+                "input_id": run.get("input_id"),
+                "primary_composite_score": primary_evaluation.get("composite_score"),
+                "primary_quality": (primary_evaluation.get("dimension_scores") or {}).get("quality"),
+                "secondary_composite_score": secondary_evaluation.get("composite_score"),
+                "secondary_quality": (secondary_evaluation.get("dimension_scores") or {}).get("quality"),
+                "secondary_node_quality_scores": secondary_evaluation.get("node_quality_scores", {}),
+            })
+        except Exception as e:
+            errors.append(f"{run_id}: {e}")
+
+    return {"results": results, "errors": errors}
+
+
+def run_single_call_baseline_experiment(input_document: str, purpose: str, input_id: str,
+                                         provider: str = "anthropic", model: str = "claude-opus-4-8",
+                                         temperature: float = 0.5, auto_evaluate: bool = True) -> dict:
+    """
+    Lefuttatja az egylépéses baseline-t (fusion_gain referenciapont, Phase 2)
+    egy adott inputon, ugyanazzal az evaluate_run()-nal értékeli mint egy
+    rendes pipeline-futást, és lenaplózza egy külön, jól felismerhető
+    experiment_id alatt ("baseline-single-call"), hogy ne keveredjen a 10
+    rendes kísérlettel a leaderboard/aggregátum számításokban.
+    """
+    from single_call_baseline import run_single_call_baseline
+
+    run_id = f"run-{uuid.uuid4().hex[:8]}"
+    result = run_single_call_baseline(input_document, purpose, provider, model, temperature)
+
+    record = {
+        "run_id": run_id,
+        "experiment_id": "baseline-single-call",
+        "experiment_name": "Egylépéses baseline (fusion_gain referenciapont)",
+        "optimization_strategy": "single_call_baseline",
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "input_id": input_id,
+        "purpose": purpose,
+        "node_configs": {"single_call": {"provider": provider, "model": model, "temperature": temperature}},
+        "outputs": result["outputs"],
+        "metrics": {
+            "node_timings": result["node_timings"],
+            "node_tokens": result["node_tokens"],
+            "node_costs_usd": result["node_costs_usd"],
+            "total_tokens": result["total_tokens"],
+            "total_cost_usd": result["total_cost_usd"],
+            "total_latency_seconds": result["total_latency_seconds"],
+        },
+        "errors": result["errors"],
+        "tags": ["baseline", "single_call", "fusion_gain_reference"],
+    }
+
+    logger = ExperimentLogger(LOGS_DIR)
+    if auto_evaluate:
+        record["evaluation"] = evaluate_run(
+            record, judge_cfg={"judge_provider": "anthropic", "judge_model": "claude-opus-4-8"}
+        )
+    logger.log(record)
+    return record
 
 
 # ── CLI belépési pont ────────────────────────────────────────────────────────

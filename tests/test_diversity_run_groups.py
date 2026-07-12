@@ -98,6 +98,45 @@ class TestPostprocessDiversityForRunGroups:
         result = er.postprocess_diversity_for_run_groups([["run-a", "run-b", "run-does-not-exist"]])
         assert set(result["patched_run_ids"]) == {"run-a", "run-b"}
 
+    def test_baseline_experiment_id_also_patches_novelty(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(er, "LOGS_DIR", tmp_path)
+        logger = ExperimentLogger(tmp_path)
+        logger.log(_base_record("run-a", "exp-001", "input-01-v2maxtok", "baseline content"))
+        logger.log(_base_record("run-b", "exp-006", "input-01-v3fix", "other content"))
+
+        def fake_compute_diversity_for_input(runs_same_input):
+            return {"per_experiment_diversity": {"exp-001": 0.5, "exp-006": 0.6}}
+
+        def fake_compute_novelty_vs_baseline(runs_same_input, baseline_experiment_id):
+            assert baseline_experiment_id == "exp-001"
+            return {"exp-006": 0.8}  # baseline itself excluded
+
+        monkeypatch.setattr(er, "compute_diversity_for_input", fake_compute_diversity_for_input)
+        monkeypatch.setattr(er, "compute_novelty_vs_baseline", fake_compute_novelty_vs_baseline)
+
+        result = er.postprocess_diversity_for_run_groups([["run-a", "run-b"]], baseline_experiment_id="exp-001")
+
+        assert result["novelty_patched_run_ids"] == ["run-b"]
+        runs = {r["run_id"]: r for r in logger.load_all_runs()}
+        assert runs["run-b"]["evaluation"]["novelty_score"] == 80.0
+        assert "novelty_score" not in runs["run-a"]["evaluation"]
+
+    def test_no_baseline_id_skips_novelty(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(er, "LOGS_DIR", tmp_path)
+        logger = ExperimentLogger(tmp_path)
+        logger.log(_base_record("run-a", "exp-001", "input-01-v2maxtok", "A"))
+        logger.log(_base_record("run-b", "exp-006", "input-01-v3fix", "B"))
+
+        monkeypatch.setattr(er, "compute_diversity_for_input", lambda r: {"per_experiment_diversity": {"exp-001": 0.1, "exp-006": 0.2}})
+
+        def fail_novelty(runs_same_input, baseline_experiment_id):
+            raise AssertionError("should not be called without baseline_experiment_id")
+
+        monkeypatch.setattr(er, "compute_novelty_vs_baseline", fail_novelty)
+
+        result = er.postprocess_diversity_for_run_groups([["run-a", "run-b"]])
+        assert result["novelty_patched_run_ids"] == []
+
     def test_multiple_independent_groups(self, tmp_path, monkeypatch):
         monkeypatch.setattr(er, "LOGS_DIR", tmp_path)
         logger = ExperimentLogger(tmp_path)
